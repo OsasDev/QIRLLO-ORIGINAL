@@ -246,8 +246,9 @@ export const Students = () => {
                   {editingStudent ? 'Update Student' : 'Add Student'}
                 </Button>
               </form>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Filters */}
