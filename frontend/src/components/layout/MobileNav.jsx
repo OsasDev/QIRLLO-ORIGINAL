@@ -7,20 +7,22 @@ import {
   MessageSquare,
   Megaphone,
   School,
+  Wallet,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 const adminTabs = [
   { icon: LayoutDashboard, label: 'Home', path: '/admin' },
   { icon: Users, label: 'Students', path: '/admin/students' },
-  { icon: School, label: 'Classes', path: '/admin/classes' },
-  { icon: ClipboardCheck, label: 'Results', path: '/admin/results' },
+  { icon: Calendar, label: 'Attendance', path: '/admin/attendance' },
+  { icon: Wallet, label: 'Fees', path: '/admin/fees' },
   { icon: MessageSquare, label: 'Messages', path: '/admin/messages' },
 ];
 
 const teacherTabs = [
   { icon: LayoutDashboard, label: 'Home', path: '/teacher' },
-  { icon: School, label: 'Classes', path: '/teacher/classes' },
+  { icon: Calendar, label: 'Attendance', path: '/teacher/attendance' },
   { icon: ClipboardCheck, label: 'Grades', path: '/teacher/grades' },
   { icon: MessageSquare, label: 'Messages', path: '/teacher/messages' },
 ];
@@ -28,8 +30,8 @@ const teacherTabs = [
 const parentTabs = [
   { icon: LayoutDashboard, label: 'Home', path: '/parent' },
   { icon: ClipboardCheck, label: 'Results', path: '/parent/results' },
+  { icon: Wallet, label: 'Fees', path: '/parent/attendance-fees' },
   { icon: MessageSquare, label: 'Messages', path: '/parent/messages' },
-  { icon: Megaphone, label: 'News', path: '/parent/announcements' },
 ];
 
 export const MobileNav = () => {
