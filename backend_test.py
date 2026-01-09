@@ -488,9 +488,9 @@ class QirlloAPITester:
             print("❌ Admin token required for CSV operations")
             return False
 
-        # Test get CSV template
+        # Test get CSV template for students
         success, response = self.run_test(
-            "Get CSV Template",
+            "Get Students CSV Template",
             "GET",
             "students/csv-template",
             200,
@@ -502,11 +502,102 @@ class QirlloAPITester:
 
         # Verify template has required fields
         if 'template' in response and 'fields' in response:
-            print(f"   Template fields: {len(response['fields'])} fields available")
-            return True
+            print(f"   Students template fields: {len(response['fields'])} fields available")
         else:
-            print("❌ CSV template response missing required fields")
+            print("❌ Students CSV template response missing required fields")
             return False
+
+        # Test get CSV template for parents
+        success, response = self.run_test(
+            "Get Parents CSV Template",
+            "GET",
+            "users/parents-csv-template",
+            200,
+            token=self.admin_token
+        )
+
+        if not success:
+            return False
+
+        # Test get CSV template for payments
+        success, response = self.run_test(
+            "Get Payments CSV Template",
+            "GET",
+            "fees/payments-csv-template",
+            200,
+            token=self.admin_token
+        )
+
+        return success
+
+    def test_user_management_apis(self):
+        """Test user management APIs"""
+        if not self.admin_token:
+            print("❌ Admin token required for user management operations")
+            return False
+
+        # Test get all users
+        success, users = self.run_test(
+            "Get All Users",
+            "GET",
+            "users",
+            200,
+            token=self.admin_token
+        )
+
+        if not success:
+            return False
+
+        # Test create new teacher
+        teacher_data = {
+            "full_name": f"Test Teacher {datetime.now().strftime('%H%M%S')}",
+            "email": f"testteacher{datetime.now().strftime('%H%M%S')}@qirllo.com",
+            "password": "teacher123",
+            "role": "teacher",
+            "phone": "+234 801 234 5678"
+        }
+
+        success, response = self.run_test(
+            "Create New Teacher",
+            "POST",
+            "auth/register",
+            200,
+            data=teacher_data,
+            token=self.admin_token
+        )
+
+        if not success:
+            return False
+
+        # Store created user ID for cleanup
+        created_user_id = response.get('user', {}).get('id')
+        if created_user_id:
+            self.created_ids.setdefault('users', []).append(created_user_id)
+
+        # Test create new parent
+        parent_data = {
+            "full_name": f"Test Parent {datetime.now().strftime('%H%M%S')}",
+            "email": f"testparent{datetime.now().strftime('%H%M%S')}@gmail.com",
+            "password": "parent123",
+            "role": "parent",
+            "phone": "+234 802 345 6789"
+        }
+
+        success, response = self.run_test(
+            "Create New Parent",
+            "POST",
+            "auth/register",
+            200,
+            data=parent_data,
+            token=self.admin_token
+        )
+
+        if success:
+            created_user_id = response.get('user', {}).get('id')
+            if created_user_id:
+                self.created_ids.setdefault('users', []).append(created_user_id)
+
+        return success
 
     def cleanup_test_data(self):
         """Clean up created test data"""
