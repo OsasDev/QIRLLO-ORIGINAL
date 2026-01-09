@@ -599,6 +599,27 @@ def main():
     print("="*50)
     tester.test_messaging_system()
 
+    # Test 9: Attendance APIs
+    print("\n" + "="*50)
+    print("TESTING: Attendance Tracking APIs")
+    print("="*50)
+    if teacher_login[0]:
+        tester.test_attendance_apis()
+
+    # Test 10: Fees APIs
+    print("\n" + "="*50)
+    print("TESTING: Fees Management APIs")
+    print("="*50)
+    if admin_login[0]:
+        tester.test_fees_apis()
+
+    # Test 11: CSV Upload APIs
+    print("\n" + "="*50)
+    print("TESTING: CSV Upload APIs")
+    print("="*50)
+    if admin_login[0]:
+        tester.test_csv_upload_apis()
+
     # Cleanup
     tester.cleanup_test_data()
 
