@@ -27,8 +27,9 @@ import {
 } from '../../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { feesApi, classesApi, studentsApi } from '../../lib/api';
+import { BulkUploadModal } from '../../components/BulkUploadModal';
 import { toast } from 'sonner';
-import { Plus, Wallet, Receipt, Search, Loader2, Download } from 'lucide-react';
+import { Plus, Wallet, Receipt, Search, Loader2, Upload } from 'lucide-react';
 
 export const Fees = () => {
   const [balances, setBalances] = useState([]);
@@ -37,6 +38,7 @@ export const Fees = () => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filterClass, setFilterClass] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
