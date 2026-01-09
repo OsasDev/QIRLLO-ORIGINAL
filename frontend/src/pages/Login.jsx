@@ -62,10 +62,10 @@ export const Login = () => {
         />
         <div className="absolute inset-0 flex flex-col justify-end p-12 z-10">
           <h2 className="text-4xl font-bold text-white mb-4">
-            Empowering Nigerian Schools
+            Ogunwole Private School
           </h2>
           <p className="text-white/90 text-lg max-w-md">
-            Complete school management solution for the modern Nigerian educational system.
+            Powered by QIRLLO - Complete school management solution for the modern Nigerian educational system.
           </p>
         </div>
       </div>
