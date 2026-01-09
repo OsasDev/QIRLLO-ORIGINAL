@@ -342,6 +342,172 @@ class QirlloAPITester:
 
         return success
 
+    def test_attendance_apis(self):
+        """Test attendance tracking APIs"""
+        if not self.teacher_token:
+            print("❌ Teacher token required for attendance operations")
+            return False
+
+        # Get classes and students for attendance
+        success, classes = self.run_test(
+            "Get Classes for Attendance",
+            "GET",
+            "classes",
+            200,
+            token=self.teacher_token
+        )
+        
+        if not success or not classes:
+            print("❌ No classes available for attendance")
+            return False
+
+        class_id = classes[0]['id']
+        
+        # Get students in class
+        success, students = self.run_test(
+            "Get Students for Attendance",
+            "GET",
+            f"students?class_id={class_id}",
+            200,
+            token=self.teacher_token
+        )
+
+        if not success or not students:
+            print("❌ No students found in class for attendance")
+            return False
+
+        # Test bulk attendance marking
+        attendance_data = {
+            "class_id": class_id,
+            "date": "2025-01-15",
+            "records": [
+                {"student_id": students[0]['id'], "status": "present"},
+                {"student_id": students[1]['id'] if len(students) > 1 else students[0]['id'], "status": "absent"}
+            ]
+        }
+
+        success, _ = self.run_test(
+            "Mark Bulk Attendance",
+            "POST",
+            "attendance/bulk",
+            200,
+            data=attendance_data,
+            token=self.teacher_token
+        )
+
+        if not success:
+            return False
+
+        # Test get attendance
+        success, _ = self.run_test(
+            "Get Attendance Records",
+            "GET",
+            f"attendance?class_id={class_id}&date=2025-01-15",
+            200,
+            token=self.teacher_token
+        )
+
+        # Test attendance summary
+        student_id = students[0]['id']
+        success, _ = self.run_test(
+            "Get Attendance Summary",
+            "GET",
+            f"attendance/summary/{student_id}?term=first",
+            200,
+            token=self.teacher_token
+        )
+
+        return success
+
+    def test_fees_apis(self):
+        """Test fees management APIs"""
+        if not self.admin_token:
+            print("❌ Admin token required for fees operations")
+            return False
+
+        # Get students for fee operations
+        success, students = self.run_test(
+            "Get Students for Fees",
+            "GET",
+            "students",
+            200,
+            token=self.admin_token
+        )
+
+        if not success or not students:
+            print("❌ No students available for fees testing")
+            return False
+
+        student_id = students[0]['id']
+
+        # Test record fee payment
+        payment_data = {
+            "student_id": student_id,
+            "amount": 25000.0,
+            "payment_method": "cash",
+            "term": "first",
+            "academic_year": "2025/2026",
+            "notes": "Test payment via API"
+        }
+
+        success, _ = self.run_test(
+            "Record Fee Payment",
+            "POST",
+            "fees/payment",
+            200,
+            data=payment_data,
+            token=self.admin_token
+        )
+
+        if not success:
+            return False
+
+        # Test get fee balance for student
+        success, _ = self.run_test(
+            "Get Student Fee Balance",
+            "GET",
+            f"fees/balance/{student_id}?term=first",
+            200,
+            token=self.admin_token
+        )
+
+        # Test get all fee balances
+        success, _ = self.run_test(
+            "Get All Fee Balances",
+            "GET",
+            "fees/balances?term=first",
+            200,
+            token=self.admin_token
+        )
+
+        return success
+
+    def test_csv_upload_apis(self):
+        """Test CSV upload functionality"""
+        if not self.admin_token:
+            print("❌ Admin token required for CSV operations")
+            return False
+
+        # Test get CSV template
+        success, response = self.run_test(
+            "Get CSV Template",
+            "GET",
+            "students/csv-template",
+            200,
+            token=self.admin_token
+        )
+
+        if not success:
+            return False
+
+        # Verify template has required fields
+        if 'template' in response and 'fields' in response:
+            print(f"   Template fields: {len(response['fields'])} fields available")
+            return True
+        else:
+            print("❌ CSV template response missing required fields")
+            return False
+
     def cleanup_test_data(self):
         """Clean up created test data"""
         print("\n🧹 Cleaning up test data...")
