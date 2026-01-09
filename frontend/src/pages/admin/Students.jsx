@@ -26,8 +26,9 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { studentsApi, classesApi, usersApi } from '../../lib/api';
+import { BulkUploadModal } from '../../components/BulkUploadModal';
 import { toast } from 'sonner';
-import { Plus, Search, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Loader2, Upload } from 'lucide-react';
 
 export const Students = () => {
   const [students, setStudents] = useState([]);
