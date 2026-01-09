@@ -38,6 +38,7 @@ export const Students = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterClass, setFilterClass] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [saving, setSaving] = useState(false);
 
