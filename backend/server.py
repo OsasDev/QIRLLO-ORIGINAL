@@ -1212,6 +1212,176 @@ async def get_all_fee_balances(class_id: Optional[str] = None, term: str = "firs
 
 # ============ CSV UPLOAD ROUTES ============
 
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Prevent deleting self
+    if user_id == current_user["id"]:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User deleted successfully"}
+
+@api_router.post("/users/upload-parents-csv")
+async def upload_parents_csv(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
+    
+    content = await file.read()
+    decoded = content.decode('utf-8')
+    reader = csv.DictReader(io.StringIO(decoded))
+    
+    created = 0
+    errors = []
+    
+    for row_num, row in enumerate(reader, start=2):
+        try:
+            full_name = row.get('full_name', '').strip()
+            email = row.get('email', '').strip()
+            phone = row.get('phone', '').strip()
+            password = row.get('password', 'parent123').strip()
+            
+            if not full_name or not email:
+                errors.append(f"Row {row_num}: Missing required fields (full_name or email)")
+                continue
+            
+            # Check if email exists
+            existing = await db.users.find_one({"email": email})
+            if existing:
+                errors.append(f"Row {row_num}: Email {email} already exists")
+                continue
+            
+            user_id = str(uuid.uuid4())
+            user_doc = {
+                "id": user_id,
+                "email": email,
+                "password_hash": hash_password(password),
+                "full_name": full_name,
+                "role": "parent",
+                "phone": phone or None,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            await db.users.insert_one(user_doc)
+            
+            # Link children if student_admission_numbers provided
+            student_admissions = row.get('student_admission_numbers', '').strip()
+            if student_admissions:
+                for admission in student_admissions.split(';'):
+                    admission = admission.strip()
+                    if admission:
+                        await db.students.update_one(
+                            {"admission_number": admission},
+                            {"$set": {"parent_id": user_id}}
+                        )
+            
+            created += 1
+            
+        except Exception as e:
+            errors.append(f"Row {row_num}: {str(e)}")
+    
+    return {"message": f"Successfully created {created} parent accounts", "created": created, "errors": errors}
+
+@api_router.get("/users/parents-csv-template")
+async def get_parents_csv_template():
+    template = """full_name,email,phone,password,student_admission_numbers
+Mr. Ojo Adewale,parent@email.com,+234 801 234 5678,parent123,QRL/2025/0001;QRL/2025/0002
+Mrs. Nwosu Chidinma,parent2@email.com,+234 802 345 6789,parent123,QRL/2025/0003"""
+    
+    return {"template": template, "fields": [
+        {"name": "full_name", "required": True, "description": "Parent's full name"},
+        {"name": "email", "required": True, "description": "Parent's email (used for login)"},
+        {"name": "phone", "required": False, "description": "Phone number"},
+        {"name": "password", "required": False, "description": "Password (default: parent123)"},
+        {"name": "student_admission_numbers", "required": False, "description": "Student admission numbers separated by semicolon"}
+    ]}
+
+@api_router.post("/fees/upload-payments-csv")
+async def upload_payments_csv(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
+    
+    content = await file.read()
+    decoded = content.decode('utf-8')
+    reader = csv.DictReader(io.StringIO(decoded))
+    
+    created = 0
+    errors = []
+    
+    for row_num, row in enumerate(reader, start=2):
+        try:
+            admission_number = row.get('admission_number', '').strip()
+            amount = row.get('amount', '').strip()
+            payment_method = row.get('payment_method', 'transfer').strip().lower()
+            term = row.get('term', 'first').strip().lower()
+            
+            if not admission_number or not amount:
+                errors.append(f"Row {row_num}: Missing required fields (admission_number or amount)")
+                continue
+            
+            # Find student
+            student = await db.students.find_one({"admission_number": admission_number}, {"_id": 0})
+            if not student:
+                errors.append(f"Row {row_num}: Student {admission_number} not found")
+                continue
+            
+            try:
+                amount_float = float(amount)
+            except ValueError:
+                errors.append(f"Row {row_num}: Invalid amount {amount}")
+                continue
+            
+            payment_id = str(uuid.uuid4())
+            receipt_number = f"RCP-{datetime.now().strftime('%Y%m%d')}-{payment_id[:8].upper()}"
+            
+            payment_doc = {
+                "id": payment_id,
+                "student_id": student["id"],
+                "student_name": student["full_name"],
+                "class_name": student.get("class_name"),
+                "amount": amount_float,
+                "payment_method": payment_method if payment_method in ["cash", "transfer", "card", "pos"] else "transfer",
+                "term": term if term in ["first", "second", "third"] else "first",
+                "academic_year": "2025/2026",
+                "receipt_number": receipt_number,
+                "notes": row.get('notes', '').strip() or None,
+                "recorded_by": current_user["id"],
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            await db.fee_payments.insert_one(payment_doc)
+            created += 1
+            
+        except Exception as e:
+            errors.append(f"Row {row_num}: {str(e)}")
+    
+    return {"message": f"Successfully recorded {created} payments", "created": created, "errors": errors}
+
+@api_router.get("/fees/payments-csv-template")
+async def get_payments_csv_template():
+    template = """admission_number,amount,payment_method,term,notes
+QRL/2025/0001,50000,transfer,first,First term full payment
+QRL/2025/0002,25000,cash,first,Partial payment
+QRL/2025/0003,50000,pos,first,"""
+    
+    return {"template": template, "fields": [
+        {"name": "admission_number", "required": True, "description": "Student's admission number"},
+        {"name": "amount", "required": True, "description": "Payment amount in Naira"},
+        {"name": "payment_method", "required": False, "description": "cash, transfer, card, or pos (default: transfer)"},
+        {"name": "term", "required": False, "description": "first, second, or third (default: first)"},
+        {"name": "notes", "required": False, "description": "Payment notes"}
+    ]}
+
 @api_router.post("/students/upload-csv")
 async def upload_students_csv(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "admin":
