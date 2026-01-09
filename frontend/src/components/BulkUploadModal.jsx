@@ -1,10 +1,9 @@
 import { useState, useRef } from 'react';
-import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
-import { uploadApi } from '../../lib/api';
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { toast } from 'sonner';
 import { Upload, FileSpreadsheet, Download, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import api from '../../lib/api';
+import api from '../lib/api';
 
 export const BulkUploadModal = ({ type = 'students', onSuccess }) => {
   const [file, setFile] = useState(null);
