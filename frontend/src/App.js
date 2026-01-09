@@ -89,18 +89,23 @@ function App() {
           <Route path="/admin/results" element={<ProtectedRoute><ResultsApproval /></ProtectedRoute>} />
           <Route path="/admin/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
           <Route path="/admin/announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
+          <Route path="/admin/fees" element={<ProtectedRoute><Fees /></ProtectedRoute>} />
+          <Route path="/admin/upload" element={<ProtectedRoute><BulkUpload /></ProtectedRoute>} />
+          <Route path="/admin/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
           
           {/* Teacher Routes */}
           <Route path="/teacher" element={<ProtectedRoute><TeacherDashboard /></ProtectedRoute>} />
           <Route path="/teacher/classes" element={<ProtectedRoute><TeacherClasses /></ProtectedRoute>} />
           <Route path="/teacher/grades" element={<ProtectedRoute><GradeEntry /></ProtectedRoute>} />
           <Route path="/teacher/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+          <Route path="/teacher/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
           
           {/* Parent Routes */}
           <Route path="/parent" element={<ProtectedRoute><ParentDashboard /></ProtectedRoute>} />
           <Route path="/parent/results" element={<ProtectedRoute><ParentResults /></ProtectedRoute>} />
           <Route path="/parent/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
           <Route path="/parent/announcements" element={<ProtectedRoute><ParentAnnouncements /></ProtectedRoute>} />
+          <Route path="/parent/attendance-fees" element={<ProtectedRoute><ParentAttendanceFees /></ProtectedRoute>} />
           
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
