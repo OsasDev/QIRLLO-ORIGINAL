@@ -14,16 +14,20 @@ import { Subjects } from './pages/admin/Subjects';
 import { ResultsApproval } from './pages/admin/ResultsApproval';
 import { Messages } from './pages/admin/Messages';
 import { Announcements } from './pages/admin/Announcements';
+import { Fees } from './pages/admin/Fees';
+import { BulkUpload } from './pages/admin/BulkUpload';
 
 // Teacher Pages
 import { TeacherDashboard } from './pages/teacher/TeacherDashboard';
 import { TeacherClasses } from './pages/teacher/TeacherClasses';
 import { GradeEntry } from './pages/teacher/GradeEntry';
+import { Attendance } from './pages/teacher/Attendance';
 
 // Parent Pages
 import { ParentDashboard } from './pages/parent/ParentDashboard';
 import { ParentResults } from './pages/parent/ParentResults';
 import { ParentAnnouncements } from './pages/parent/ParentAnnouncements';
+import { ParentAttendanceFees } from './pages/parent/AttendanceFees';
 
 import './App.css';
 
