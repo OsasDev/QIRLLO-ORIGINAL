@@ -104,6 +104,36 @@ export const dashboardApi = {
   getStats: () => api.get('/dashboard/stats'),
 };
 
+// Attendance API
+export const attendanceApi = {
+  mark: (data) => api.post('/attendance', data),
+  markBulk: (data) => api.post('/attendance/bulk', data),
+  getAll: (params) => api.get('/attendance', { params }),
+  getSummary: (studentId, term) => api.get(`/attendance/summary/${studentId}`, { params: { term } }),
+};
+
+// Fees API
+export const feesApi = {
+  createStructure: (data) => api.post('/fees/structure', data),
+  getStructures: (params) => api.get('/fees/structure', { params }),
+  recordPayment: (data) => api.post('/fees/payment', data),
+  getPayments: (params) => api.get('/fees/payments', { params }),
+  getBalance: (studentId, term) => api.get(`/fees/balance/${studentId}`, { params: { term } }),
+  getAllBalances: (params) => api.get('/fees/balances', { params }),
+};
+
+// CSV Upload API
+export const uploadApi = {
+  uploadStudents: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/students/upload-csv', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  getTemplate: () => api.get('/students/csv-template'),
+};
+
 // Seed API
 export const seedApi = {
   seed: () => api.post('/seed'),
