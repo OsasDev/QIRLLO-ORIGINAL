@@ -113,3 +113,66 @@
 3. Add bulk student import via CSV
 4. Integrate payment gateway for school fees
 5. Add SMS notification support
+
+---
+## Update: January 9, 2026 - Added Features
+
+### New Features Implemented
+
+#### 1. Attendance Tracking
+- **Teacher Attendance Page**: `/teacher/attendance`
+  - Select class and date
+  - Mark students as Present/Absent/Late/Excused
+  - Bulk mark all present/absent
+  - Save attendance with summary stats
+  
+- **Admin Attendance View**: `/admin/attendance`
+  - Same functionality as teachers
+  - Can mark for any class
+
+- **Parent Attendance View**: `/parent/attendance-fees`
+  - View attendance summary (rate, days present/absent/late)
+  - Recent attendance records
+  - Per-child view with switcher
+
+#### 2. School Fees Management
+- **Admin Fees Page**: `/admin/fees`
+  - View all student fee balances
+  - Record fee payments (cash/transfer/card/POS)
+  - Auto-generated receipt numbers
+  - Filter by class, status (paid/partial/unpaid), term
+  - Summary stats: Collected, Outstanding, Collection Rate
+  - Payment history tab
+
+- **Parent Fee View**: `/parent/attendance-fees`
+  - View outstanding balance
+  - See total fees vs amount paid
+  - Payment history with receipt numbers
+
+#### 3. Bulk CSV Upload
+- **Admin Bulk Upload Page**: `/admin/upload`
+  - Download CSV template
+  - Upload student records
+  - Auto-link to existing classes and parents
+  - Error reporting for failed rows
+  
+- **CSV Template Fields**:
+  - Required: full_name, admission_number
+  - Optional: class, gender, date_of_birth, parent_email, address
+
+### API Endpoints Added
+- `POST /api/attendance` - Mark single attendance
+- `POST /api/attendance/bulk` - Bulk attendance marking
+- `GET /api/attendance` - Get attendance records
+- `GET /api/attendance/summary/{student_id}` - Attendance summary
+- `POST /api/fees/payment` - Record fee payment
+- `GET /api/fees/balance/{student_id}` - Student fee balance
+- `GET /api/fees/balances` - All fee balances (admin)
+- `POST /api/students/upload-csv` - Bulk CSV upload
+- `GET /api/students/csv-template` - Download template
+
+### Updated Navigation
+- Admin sidebar: Added Attendance, School Fees, Bulk Upload
+- Teacher sidebar: Added Attendance
+- Parent sidebar: Added Attendance & Fees (combined view)
+- Mobile nav updated with new tabs
