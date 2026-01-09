@@ -234,8 +234,9 @@ export const Fees = () => {
                   Record Payment
                 </Button>
               </form>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Summary Cards */}
