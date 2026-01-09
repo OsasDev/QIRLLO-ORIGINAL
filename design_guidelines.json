@@ -1,0 +1,158 @@
+{
+  "identity": {
+    "name": "QIRLLO",
+    "persona": "E1: The Anti-AI Designer",
+    "tone": "Trustworthy, Efficient, Empowering, Community-focused",
+    "theme_strategy": "Academic Clarity (Light Mode Default)",
+    "design_principles": [
+      "Fusion over Imitation: Mix Swiss Grid precision with Nigerian warmth",
+      "Content is King: Data legibility is the primary aesthetic",
+      "Mobile First: Design for the teacher standing in a classroom with a phone",
+      "Negative Space: Use whitespace to reduce cognitive load in data-heavy views"
+    ]
+  },
+  "typography": {
+    "headings": {
+      "family": "Manrope",
+      "weights": ["600", "700", "800"],
+      "usage": "Page titles, card headers, major stats",
+      "letter_spacing": "-0.02em"
+    },
+    "body": {
+      "family": "Public Sans",
+      "weights": ["400", "500"],
+      "usage": "General text, data tables, inputs",
+      "letter_spacing": "0"
+    },
+    "mono": {
+      "family": "JetBrains Mono",
+      "usage": "Student IDs, Grade calculations, Technical data"
+    }
+  },
+  "colors": {
+    "primary": {
+      "DEFAULT": "#1E40AF",
+      "foreground": "#FFFFFF",
+      "hover": "#1E3A8A"
+    },
+    "secondary": {
+      "DEFAULT": "#2563EB",
+      "foreground": "#FFFFFF",
+      "hover": "#1D4ED8"
+    },
+    "accent": {
+      "DEFAULT": "#F3F4F6",
+      "foreground": "#1F2937"
+    },
+    "success": {
+      "DEFAULT": "#10B981",
+      "foreground": "#FFFFFF"
+    },
+    "warning": {
+      "DEFAULT": "#F59E0B",
+      "foreground": "#FFFFFF"
+    },
+    "destructive": {
+      "DEFAULT": "#EF4444",
+      "foreground": "#FFFFFF"
+    },
+    "background": {
+      "DEFAULT": "#FFFFFF",
+      "subtle": "#F9FAFB"
+    }
+  },
+  "layout_strategy": {
+    "mobile": {
+      "pattern": "Stack & Expand",
+      "rules": [
+        "No horizontal scrolling for primary actions",
+        "Use Bottom Sheets (Drawers) for forms/details instead of full page navigations where possible",
+        "Touch targets must be minimum 44px",
+        "Navigation: Bottom Tab Bar for main views"
+      ]
+    },
+    "desktop": {
+      "pattern": "Control Room Grid",
+      "rules": [
+        "Sidebar Navigation (Collapsible)",
+        "Dense data tables with comfortable padding (py-3 px-4)",
+        "Use 'Bento' grid for Dashboard Overview"
+      ]
+    },
+    "spacing": {
+      "container_padding": "p-4 md:p-8 lg:p-12",
+      "card_padding": "p-6",
+      "gap": "gap-4 md:gap-6"
+    }
+  },
+  "components": {
+    "GradeBook": {
+      "description": "A responsive grade entry system",
+      "mobile_behavior": "List of student cards. Tap to open Drawer for grade entry.",
+      "desktop_behavior": "Spreadsheet-style data grid with keyboard navigation.",
+      "features": ["Auto-calculation (40% CA + 60% Exam)", "Validation (0-100 range)", "Draft saving"]
+    },
+    "ResultCard": {
+      "description": "Digital report card visualization",
+      "style": "Paper-like texture, official looking typography, clear pass/fail indicators"
+    },
+    "StatCard": {
+      "description": "Dashboard metric display",
+      "style": "Clean, minimal, with trend indicator. No heavy shadows."
+    }
+  },
+  "visual_enhancers": {
+    "textures": "Subtle noise on solid backgrounds to reduce digital flatness",
+    "shadows": "Soft, diffuse shadows (shadow-sm, shadow-md). Avoid harsh outlines.",
+    "borders": "1px solid borders in neutral-200 for structure. Rounded-lg (8px) radius."
+  },
+  "assets": {
+    "images": {
+      "login_hero": {
+        "url": "https://images.pexels.com/photos/5211472/pexels-photo-5211472.jpeg",
+        "alt": "Nigerian students in classroom",
+        "usage": "Login page split layout image"
+      },
+      "teacher_dashboard_promo": {
+        "url": "https://images.pexels.com/photos/8472797/pexels-photo-8472797.jpeg",
+        "alt": "Teacher using tablet",
+        "usage": "Landing page or empty state for teacher dashboard"
+      },
+      "parent_engagement": {
+        "url": "https://images.pexels.com/photos/6584750/pexels-photo-6584750.jpeg",
+        "alt": "Parents looking at phone",
+        "usage": "Parent dashboard welcome or promo"
+      },
+      "student_focus": {
+        "url": "https://images.pexels.com/photos/11025059/pexels-photo-11025059.jpeg",
+        "alt": "Student studying",
+        "usage": "Student results page header"
+      }
+    },
+    "icons": "Lucide React (Clean, consistent stroke width)"
+  },
+  "motion": {
+    "transitions": "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    "page_load": "Fade up (opacity 0->1, y 10px->0)",
+    "interactions": "Scale down slightly on click (active:scale-95)"
+  },
+  "accessibility": {
+    "contrast": "Ensure WCAG AA compliance for all text",
+    "focus_states": "Visible ring-2 ring-offset-2 ring-primary",
+    "screen_readers": "All icon-only buttons must have aria-label"
+  },
+  "instructions_to_main_agent": [
+    "Implement the 'GradeBook' component with distinct mobile/desktop views using 'react-responsive' or CSS media queries.",
+    "Use 'Manrope' for all headings and 'Public Sans' for body text. Import from Google Fonts.",
+    "Ensure the 'Login' page uses the 'login_hero' image in a split layout (Image Left/Right, Form opposite).",
+    "For the Teacher Dashboard, prioritize the 'My Classes' and 'Grade Entry' flows.",
+    "Use 'sonner' for all toast notifications (success/error).",
+    "Add 'data-testid' to all interactive elements."
+  ],
+  "universal_guidelines": [
+    "Do not use gradients for text.",
+    "Avoid 'Inter' font for headings.",
+    "Use generous padding inside cards.",
+    "Ensure all forms have validation feedback."
+  ]
+}
