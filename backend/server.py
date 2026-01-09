@@ -1294,23 +1294,6 @@ async def upload_students_csv(file: UploadFile = File(...), current_user: dict =
         "errors": errors
     }
 
-@api_router.get("/students/csv-template")
-async def get_csv_template():
-    """Return a CSV template for student upload"""
-    template = """full_name,admission_number,class,gender,date_of_birth,parent_email,address
-John Doe,QRL/2025/0001,JSS1 A,male,2012-05-15,parent@email.com,123 Lagos Street
-Jane Smith,QRL/2025/0002,JSS1 A,female,2012-08-20,parent2@email.com,456 Abuja Road"""
-    
-    return {"template": template, "fields": [
-        {"name": "full_name", "required": True, "description": "Student's full name"},
-        {"name": "admission_number", "required": True, "description": "Unique admission number"},
-        {"name": "class", "required": False, "description": "Class name (e.g., JSS1 A)"},
-        {"name": "gender", "required": False, "description": "male or female"},
-        {"name": "date_of_birth", "required": False, "description": "YYYY-MM-DD format"},
-        {"name": "parent_email", "required": False, "description": "Parent's registered email"},
-        {"name": "address", "required": False, "description": "Student's address"}
-    ]}
-
 # ============ DASHBOARD STATS ============
 
 @api_router.get("/dashboard/stats")
