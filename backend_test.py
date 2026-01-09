@@ -604,7 +604,7 @@ class QirlloAPITester:
         print("\n🧹 Cleaning up test data...")
         
         # Delete created students
-        for student_id in self.created_ids['students']:
+        for student_id in self.created_ids.get('students', []):
             self.run_test(
                 f"Delete Student {student_id}",
                 "DELETE",
@@ -614,11 +614,21 @@ class QirlloAPITester:
             )
 
         # Delete created classes
-        for class_id in self.created_ids['classes']:
+        for class_id in self.created_ids.get('classes', []):
             self.run_test(
                 f"Delete Class {class_id}",
                 "DELETE",
                 f"classes/{class_id}",
+                200,
+                token=self.admin_token
+            )
+
+        # Delete created users
+        for user_id in self.created_ids.get('users', []):
+            self.run_test(
+                f"Delete User {user_id}",
+                "DELETE",
+                f"users/{user_id}",
                 200,
                 token=self.admin_token
             )
