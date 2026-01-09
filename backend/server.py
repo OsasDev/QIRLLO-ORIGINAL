@@ -187,6 +187,75 @@ class AnnouncementResponse(BaseModel):
     author_name: Optional[str] = None
     created_at: str
 
+# ============ ATTENDANCE MODELS ============
+
+class AttendanceEntry(BaseModel):
+    student_id: str
+    date: str
+    status: str = Field(..., pattern="^(present|absent|late|excused)$")
+    notes: Optional[str] = None
+
+class AttendanceBulkEntry(BaseModel):
+    class_id: str
+    date: str
+    records: List[dict]
+
+class AttendanceResponse(BaseModel):
+    id: str
+    student_id: str
+    student_name: Optional[str] = None
+    class_id: str
+    class_name: Optional[str] = None
+    date: str
+    status: str
+    notes: Optional[str] = None
+    marked_by: Optional[str] = None
+    created_at: str
+
+# ============ FEES MODELS ============
+
+class FeeStructure(BaseModel):
+    class_level: str
+    term: str
+    academic_year: str = "2025/2026"
+    tuition: float
+    books: float = 0
+    uniform: float = 0
+    other_fees: float = 0
+    total: Optional[float] = None
+
+class FeePayment(BaseModel):
+    student_id: str
+    amount: float
+    payment_method: str = Field(..., pattern="^(cash|transfer|card|pos)$")
+    term: str
+    academic_year: str = "2025/2026"
+    receipt_number: Optional[str] = None
+    notes: Optional[str] = None
+
+class FeePaymentResponse(BaseModel):
+    id: str
+    student_id: str
+    student_name: Optional[str] = None
+    class_name: Optional[str] = None
+    amount: float
+    payment_method: str
+    term: str
+    academic_year: str
+    receipt_number: Optional[str] = None
+    notes: Optional[str] = None
+    recorded_by: Optional[str] = None
+    created_at: str
+
+class StudentFeeBalance(BaseModel):
+    student_id: str
+    student_name: str
+    class_name: str
+    total_fees: float
+    total_paid: float
+    balance: float
+    payments: List[FeePaymentResponse]
+
 # ============ HELPERS ============
 
 def hash_password(password: str) -> str:
