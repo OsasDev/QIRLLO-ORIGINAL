@@ -132,10 +132,11 @@ export const ParentResults = () => {
               {/* School Header */}
               <div className="text-center mb-6 pb-6 border-b">
                 <div className="w-16 h-16 rounded-xl bg-primary mx-auto flex items-center justify-center mb-4">
-                  <span className="text-white font-bold text-3xl">Q</span>
+                  <span className="text-white font-bold text-3xl">O</span>
                 </div>
-                <h2 className="text-2xl font-bold">QIRLLO SCHOOL</h2>
+                <h2 className="text-2xl font-bold">OGUNWOLE PRIVATE SCHOOL</h2>
                 <p className="text-muted-foreground">Academic Report Card</p>
+                <p className="text-xs text-muted-foreground mt-1">Powered by QIRLLO</p>
               </div>
 
               {/* Student Info */}
