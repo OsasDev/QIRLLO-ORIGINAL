@@ -12,6 +12,9 @@ import {
   LogOut,
   ChevronRight,
   School,
+  Wallet,
+  Upload,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -21,7 +24,10 @@ const adminNavItems = [
   { icon: School, label: 'Classes', path: '/admin/classes' },
   { icon: GraduationCap, label: 'Teachers', path: '/admin/teachers' },
   { icon: BookOpen, label: 'Subjects', path: '/admin/subjects' },
+  { icon: Calendar, label: 'Attendance', path: '/admin/attendance' },
   { icon: ClipboardCheck, label: 'Results Approval', path: '/admin/results' },
+  { icon: Wallet, label: 'School Fees', path: '/admin/fees' },
+  { icon: Upload, label: 'Bulk Upload', path: '/admin/upload' },
   { icon: MessageSquare, label: 'Messages', path: '/admin/messages' },
   { icon: Megaphone, label: 'Announcements', path: '/admin/announcements' },
 ];
@@ -29,6 +35,7 @@ const adminNavItems = [
 const teacherNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/teacher' },
   { icon: School, label: 'My Classes', path: '/teacher/classes' },
+  { icon: Calendar, label: 'Attendance', path: '/teacher/attendance' },
   { icon: ClipboardCheck, label: 'Grade Entry', path: '/teacher/grades' },
   { icon: MessageSquare, label: 'Messages', path: '/teacher/messages' },
 ];
@@ -36,6 +43,7 @@ const teacherNavItems = [
 const parentNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/parent' },
   { icon: ClipboardCheck, label: 'Results', path: '/parent/results' },
+  { icon: Calendar, label: 'Attendance & Fees', path: '/parent/attendance-fees' },
   { icon: MessageSquare, label: 'Messages', path: '/parent/messages' },
   { icon: Megaphone, label: 'Announcements', path: '/parent/announcements' },
 ];
