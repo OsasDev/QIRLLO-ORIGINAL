@@ -91,8 +91,8 @@ function App() {
           <Route path="/admin/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
           <Route path="/admin/announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
           <Route path="/admin/fees" element={<ProtectedRoute><Fees /></ProtectedRoute>} />
-          <Route path="/admin/upload" element={<ProtectedRoute><BulkUpload /></ProtectedRoute>} />
-          <Route path="/admin/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
+          <Route path="/admin/attendance" element={<ProtectedRoute><AdminAttendanceSummary /></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
           
           {/* Teacher Routes */}
           <Route path="/teacher" element={<ProtectedRoute><TeacherDashboard /></ProtectedRoute>} />
