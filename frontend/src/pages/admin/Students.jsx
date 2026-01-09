@@ -150,34 +150,52 @@ export const Students = () => {
             <h1 className="text-2xl font-bold">Students</h1>
             <p className="text-muted-foreground">Manage student enrollment and records</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button data-testid="add-student-btn">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Student
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>{editingStudent ? 'Edit Student' : 'Add New Student'}</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name</Label>
-                  <Input
-                    id="full_name"
-                    value={form.full_name}
-                    onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                    required
-                    data-testid="student-name-input"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="admission_number">Admission Number</Label>
-                  <Input
-                    id="admission_number"
-                    value={form.admission_number}
-                    onChange={(e) => setForm({ ...form, admission_number: e.target.value })}
+          <div className="flex gap-2">
+            {/* Bulk Upload Dialog */}
+            <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="bulk-upload-btn">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Bulk Upload
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Bulk Upload Students</DialogTitle>
+                </DialogHeader>
+                <BulkUploadModal type="students" onSuccess={() => { setUploadDialogOpen(false); loadData(); }} />
+              </DialogContent>
+            </Dialog>
+
+            {/* Add Student Dialog */}
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+              <DialogTrigger asChild>
+                <Button data-testid="add-student-btn">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Student
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{editingStudent ? 'Edit Student' : 'Add New Student'}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="full_name">Full Name</Label>
+                    <Input
+                      id="full_name"
+                      value={form.full_name}
+                      onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                      required
+                      data-testid="student-name-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admission_number">Admission Number</Label>
+                    <Input
+                      id="admission_number"
+                      value={form.admission_number}
+                      onChange={(e) => setForm({ ...form, admission_number: e.target.value })}
                     required
                     placeholder="QRL/2025/0001"
                     data-testid="student-admission-input"
