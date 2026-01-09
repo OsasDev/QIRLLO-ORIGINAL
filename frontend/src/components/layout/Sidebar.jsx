@@ -8,13 +8,12 @@ import {
   ClipboardCheck,
   MessageSquare,
   Megaphone,
-  Settings,
   LogOut,
   ChevronRight,
   School,
   Wallet,
-  Upload,
   Calendar,
+  UserCog,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -27,7 +26,7 @@ const adminNavItems = [
   { icon: Calendar, label: 'Attendance', path: '/admin/attendance' },
   { icon: ClipboardCheck, label: 'Results Approval', path: '/admin/results' },
   { icon: Wallet, label: 'School Fees', path: '/admin/fees' },
-  { icon: Upload, label: 'Bulk Upload', path: '/admin/upload' },
+  { icon: UserCog, label: 'User Management', path: '/admin/users' },
   { icon: MessageSquare, label: 'Messages', path: '/admin/messages' },
   { icon: Megaphone, label: 'Announcements', path: '/admin/announcements' },
 ];
