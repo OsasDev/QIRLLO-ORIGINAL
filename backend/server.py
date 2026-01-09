@@ -1306,6 +1306,15 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         pending_grades = await db.grades.count_documents({"status": "submitted"})
         unread_messages = await db.messages.count_documents({"recipient_id": current_user["id"], "is_read": False})
         
+        # Get fee collection stats
+        total_fees_collected = 0
+        fee_payments = await db.fee_payments.find({}, {"_id": 0, "amount": 1}).to_list(10000)
+        total_fees_collected = sum(p["amount"] for p in fee_payments)
+        
+        # Today's attendance
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today_attendance = await db.attendance.count_documents({"date": today})
+        
         return {
             "total_students": total_students,
             "total_teachers": total_teachers,
@@ -1313,7 +1322,9 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
             "total_classes": total_classes,
             "pending_grades": pending_grades,
             "unread_messages": unread_messages,
-            "revenue": total_students * 1000  # ₦1,000 per student
+            "revenue": total_students * 1000,  # ₦1,000 per student
+            "fees_collected": total_fees_collected,
+            "attendance_today": today_attendance
         }
     
     elif current_user["role"] == "teacher":
@@ -1323,12 +1334,17 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         draft_grades = await db.grades.count_documents({"teacher_id": current_user["id"], "status": "draft"})
         unread_messages = await db.messages.count_documents({"recipient_id": current_user["id"], "is_read": False})
         
+        # Today's attendance for teacher's classes
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today_attendance = await db.attendance.count_documents({"class_id": {"$in": class_ids}, "date": today})
+        
         return {
             "total_classes": len(class_ids),
             "total_subjects": len(subjects),
             "total_students": total_students,
             "draft_grades": draft_grades,
-            "unread_messages": unread_messages
+            "unread_messages": unread_messages,
+            "attendance_today": today_attendance
         }
     
     elif current_user["role"] == "parent":
@@ -1338,12 +1354,20 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         unread_messages = await db.messages.count_documents({"recipient_id": current_user["id"], "is_read": False})
         announcements = await db.announcements.count_documents({"$or": [{"target_audience": "all"}, {"target_audience": "parents"}]})
         
+        # Get fee balances for children
+        total_balance = 0
+        for child in children:
+            payments = await db.fee_payments.find({"student_id": child["id"]}, {"_id": 0}).to_list(100)
+            paid = sum(p["amount"] for p in payments)
+            total_balance += max(0, 50000 - paid)  # Default fee of ₦50,000
+        
         return {
             "total_children": len(children),
             "results_available": results_count,
             "unread_messages": unread_messages,
             "announcements": announcements,
-            "children": children
+            "children": children,
+            "fee_balance": total_balance
         }
     
     return {}
