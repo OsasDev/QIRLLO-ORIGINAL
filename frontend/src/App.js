@@ -15,7 +15,8 @@ import { ResultsApproval } from './pages/admin/ResultsApproval';
 import { Messages } from './pages/admin/Messages';
 import { Announcements } from './pages/admin/Announcements';
 import { Fees } from './pages/admin/Fees';
-import { BulkUpload } from './pages/admin/BulkUpload';
+import { AdminAttendanceSummary } from './pages/admin/AttendanceSummary';
+import { UserManagement } from './pages/admin/UserManagement';
 
 // Teacher Pages
 import { TeacherDashboard } from './pages/teacher/TeacherDashboard';
