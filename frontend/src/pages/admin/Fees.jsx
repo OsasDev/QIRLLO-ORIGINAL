@@ -134,35 +134,53 @@ export const Fees = () => {
             <h1 className="text-2xl font-bold">School Fees</h1>
             <p className="text-muted-foreground">Manage fee collection and balances</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="record-payment-btn">
-                <Plus className="w-4 h-4 mr-2" />
-                Record Payment
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Record Fee Payment</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Student</Label>
-                  <Select value={form.student_id} onValueChange={(value) => setForm({ ...form, student_id: value })}>
-                    <SelectTrigger data-testid="payment-student-select">
-                      <SelectValue placeholder="Select student" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {students.map((student) => (
-                        <SelectItem key={student.id} value={student.id}>
-                          {student.full_name} - {student.class_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Amount (₦)</Label>
+          <div className="flex gap-2">
+            {/* Bulk Upload Dialog */}
+            <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="bulk-upload-payments-btn">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Bulk Upload
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Bulk Upload Payments</DialogTitle>
+                </DialogHeader>
+                <BulkUploadModal type="payments" onSuccess={() => { setUploadDialogOpen(false); loadData(); }} />
+              </DialogContent>
+            </Dialog>
+
+            {/* Record Payment Dialog */}
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="record-payment-btn">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Record Payment
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Record Fee Payment</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Student</Label>
+                    <Select value={form.student_id} onValueChange={(value) => setForm({ ...form, student_id: value })}>
+                      <SelectTrigger data-testid="payment-student-select">
+                        <SelectValue placeholder="Select student" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {students.map((student) => (
+                          <SelectItem key={student.id} value={student.id}>
+                            {student.full_name} - {student.class_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">Amount (₦)</Label>
                   <Input
                     id="amount"
                     type="number"
