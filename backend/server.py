@@ -868,6 +868,432 @@ async def delete_announcement(announcement_id: str, current_user: dict = Depends
         raise HTTPException(status_code=404, detail="Announcement not found")
     return {"message": "Announcement deleted"}
 
+# ============ ATTENDANCE ROUTES ============
+
+@api_router.post("/attendance", response_model=AttendanceResponse)
+async def mark_attendance(entry: AttendanceEntry, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["admin", "teacher"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    student = await db.students.find_one({"id": entry.student_id}, {"_id": 0})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Check if attendance already exists for this date
+    existing = await db.attendance.find_one({
+        "student_id": entry.student_id,
+        "date": entry.date
+    })
+    
+    attendance_id = existing["id"] if existing else str(uuid.uuid4())
+    attendance_doc = {
+        "id": attendance_id,
+        "student_id": entry.student_id,
+        "student_name": student["full_name"],
+        "class_id": student["class_id"],
+        "class_name": student.get("class_name"),
+        "date": entry.date,
+        "status": entry.status,
+        "notes": entry.notes,
+        "marked_by": current_user["id"],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if existing:
+        await db.attendance.update_one({"id": existing["id"]}, {"$set": attendance_doc})
+    else:
+        await db.attendance.insert_one(attendance_doc)
+    
+    return AttendanceResponse(**attendance_doc)
+
+@api_router.post("/attendance/bulk", response_model=List[AttendanceResponse])
+async def mark_attendance_bulk(bulk_entry: AttendanceBulkEntry, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["admin", "teacher"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    class_doc = await db.classes.find_one({"id": bulk_entry.class_id}, {"_id": 0})
+    results = []
+    
+    for record in bulk_entry.records:
+        student = await db.students.find_one({"id": record["student_id"]}, {"_id": 0})
+        if not student:
+            continue
+        
+        existing = await db.attendance.find_one({
+            "student_id": record["student_id"],
+            "date": bulk_entry.date
+        })
+        
+        attendance_id = existing["id"] if existing else str(uuid.uuid4())
+        attendance_doc = {
+            "id": attendance_id,
+            "student_id": record["student_id"],
+            "student_name": student["full_name"],
+            "class_id": bulk_entry.class_id,
+            "class_name": class_doc["name"] if class_doc else None,
+            "date": bulk_entry.date,
+            "status": record["status"],
+            "notes": record.get("notes"),
+            "marked_by": current_user["id"],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        if existing:
+            await db.attendance.update_one({"id": existing["id"]}, {"$set": attendance_doc})
+        else:
+            await db.attendance.insert_one(attendance_doc)
+        
+        results.append(AttendanceResponse(**attendance_doc))
+    
+    return results
+
+@api_router.get("/attendance", response_model=List[AttendanceResponse])
+async def get_attendance(
+    class_id: Optional[str] = None,
+    student_id: Optional[str] = None,
+    date: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    query = {}
+    
+    if class_id:
+        query["class_id"] = class_id
+    if student_id:
+        query["student_id"] = student_id
+    if date:
+        query["date"] = date
+    if start_date and end_date:
+        query["date"] = {"$gte": start_date, "$lte": end_date}
+    
+    if current_user["role"] == "parent":
+        children = await db.students.find({"parent_id": current_user["id"]}, {"_id": 0}).to_list(100)
+        child_ids = [c["id"] for c in children]
+        query["student_id"] = {"$in": child_ids}
+    
+    if current_user["role"] == "teacher":
+        subjects = await db.subjects.find({"teacher_id": current_user["id"]}, {"_id": 0}).to_list(100)
+        class_ids = list(set([s["class_id"] for s in subjects]))
+        if not class_id:
+            query["class_id"] = {"$in": class_ids}
+    
+    attendance = await db.attendance.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    return [AttendanceResponse(**a) for a in attendance]
+
+@api_router.get("/attendance/summary/{student_id}")
+async def get_attendance_summary(student_id: str, term: Optional[str] = "first", current_user: dict = Depends(get_current_user)):
+    student = await db.students.find_one({"id": student_id}, {"_id": 0})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Check access for parents
+    if current_user["role"] == "parent":
+        if student.get("parent_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    attendance = await db.attendance.find({"student_id": student_id}, {"_id": 0}).to_list(1000)
+    
+    total_days = len(attendance)
+    present = len([a for a in attendance if a["status"] == "present"])
+    absent = len([a for a in attendance if a["status"] == "absent"])
+    late = len([a for a in attendance if a["status"] == "late"])
+    excused = len([a for a in attendance if a["status"] == "excused"])
+    
+    attendance_rate = (present + late) / total_days * 100 if total_days > 0 else 0
+    
+    return {
+        "student_id": student_id,
+        "student_name": student["full_name"],
+        "class_name": student.get("class_name"),
+        "total_days": total_days,
+        "present": present,
+        "absent": absent,
+        "late": late,
+        "excused": excused,
+        "attendance_rate": round(attendance_rate, 1)
+    }
+
+# ============ FEES ROUTES ============
+
+@api_router.post("/fees/structure")
+async def create_fee_structure(fee: FeeStructure, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    total = fee.tuition + fee.books + fee.uniform + fee.other_fees
+    
+    fee_id = str(uuid.uuid4())
+    fee_doc = {
+        "id": fee_id,
+        "class_level": fee.class_level,
+        "term": fee.term,
+        "academic_year": fee.academic_year,
+        "tuition": fee.tuition,
+        "books": fee.books,
+        "uniform": fee.uniform,
+        "other_fees": fee.other_fees,
+        "total": total,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Upsert fee structure
+    await db.fee_structures.update_one(
+        {"class_level": fee.class_level, "term": fee.term, "academic_year": fee.academic_year},
+        {"$set": fee_doc},
+        upsert=True
+    )
+    
+    return fee_doc
+
+@api_router.get("/fees/structure")
+async def get_fee_structures(class_level: Optional[str] = None, term: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    query = {}
+    if class_level:
+        query["class_level"] = class_level
+    if term:
+        query["term"] = term
+    
+    structures = await db.fee_structures.find(query, {"_id": 0}).to_list(100)
+    return structures
+
+@api_router.post("/fees/payment", response_model=FeePaymentResponse)
+async def record_fee_payment(payment: FeePayment, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    student = await db.students.find_one({"id": payment.student_id}, {"_id": 0})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    payment_id = str(uuid.uuid4())
+    receipt_number = payment.receipt_number or f"RCP-{datetime.now().strftime('%Y%m%d')}-{payment_id[:8].upper()}"
+    
+    payment_doc = {
+        "id": payment_id,
+        "student_id": payment.student_id,
+        "student_name": student["full_name"],
+        "class_name": student.get("class_name"),
+        "amount": payment.amount,
+        "payment_method": payment.payment_method,
+        "term": payment.term,
+        "academic_year": payment.academic_year,
+        "receipt_number": receipt_number,
+        "notes": payment.notes,
+        "recorded_by": current_user["id"],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.fee_payments.insert_one(payment_doc)
+    return FeePaymentResponse(**payment_doc)
+
+@api_router.get("/fees/payments", response_model=List[FeePaymentResponse])
+async def get_fee_payments(
+    student_id: Optional[str] = None,
+    term: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    query = {}
+    if student_id:
+        query["student_id"] = student_id
+    if term:
+        query["term"] = term
+    
+    if current_user["role"] == "parent":
+        children = await db.students.find({"parent_id": current_user["id"]}, {"_id": 0}).to_list(100)
+        child_ids = [c["id"] for c in children]
+        query["student_id"] = {"$in": child_ids}
+    
+    payments = await db.fee_payments.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return [FeePaymentResponse(**p) for p in payments]
+
+@api_router.get("/fees/balance/{student_id}", response_model=StudentFeeBalance)
+async def get_student_fee_balance(student_id: str, term: str = "first", current_user: dict = Depends(get_current_user)):
+    student = await db.students.find_one({"id": student_id}, {"_id": 0})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Check access for parents
+    if current_user["role"] == "parent":
+        if student.get("parent_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get class level from class name (e.g., "JSS1 A" -> "JSS1")
+    class_doc = await db.classes.find_one({"id": student["class_id"]}, {"_id": 0})
+    class_level = class_doc["level"] if class_doc else "JSS1"
+    
+    # Get fee structure
+    fee_structure = await db.fee_structures.find_one({
+        "class_level": class_level,
+        "term": term
+    }, {"_id": 0})
+    
+    total_fees = fee_structure["total"] if fee_structure else 50000  # Default ₦50,000
+    
+    # Get payments for this student and term
+    payments = await db.fee_payments.find({
+        "student_id": student_id,
+        "term": term
+    }, {"_id": 0}).to_list(100)
+    
+    total_paid = sum(p["amount"] for p in payments)
+    balance = total_fees - total_paid
+    
+    return StudentFeeBalance(
+        student_id=student_id,
+        student_name=student["full_name"],
+        class_name=student.get("class_name", ""),
+        total_fees=total_fees,
+        total_paid=total_paid,
+        balance=balance,
+        payments=[FeePaymentResponse(**p) for p in payments]
+    )
+
+@api_router.get("/fees/balances")
+async def get_all_fee_balances(class_id: Optional[str] = None, term: str = "first", current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    query = {}
+    if class_id:
+        query["class_id"] = class_id
+    
+    students = await db.students.find(query, {"_id": 0}).to_list(1000)
+    balances = []
+    
+    for student in students:
+        class_doc = await db.classes.find_one({"id": student["class_id"]}, {"_id": 0})
+        class_level = class_doc["level"] if class_doc else "JSS1"
+        
+        fee_structure = await db.fee_structures.find_one({
+            "class_level": class_level,
+            "term": term
+        }, {"_id": 0})
+        
+        total_fees = fee_structure["total"] if fee_structure else 50000
+        
+        payments = await db.fee_payments.find({
+            "student_id": student["id"],
+            "term": term
+        }, {"_id": 0}).to_list(100)
+        
+        total_paid = sum(p["amount"] for p in payments)
+        balance = total_fees - total_paid
+        
+        balances.append({
+            "student_id": student["id"],
+            "student_name": student["full_name"],
+            "admission_number": student["admission_number"],
+            "class_name": student.get("class_name"),
+            "total_fees": total_fees,
+            "total_paid": total_paid,
+            "balance": balance,
+            "status": "paid" if balance <= 0 else "partial" if total_paid > 0 else "unpaid"
+        })
+    
+    return balances
+
+# ============ CSV UPLOAD ROUTES ============
+
+@api_router.post("/students/upload-csv")
+async def upload_students_csv(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
+    
+    content = await file.read()
+    decoded = content.decode('utf-8')
+    reader = csv.DictReader(io.StringIO(decoded))
+    
+    created = 0
+    errors = []
+    
+    for row_num, row in enumerate(reader, start=2):
+        try:
+            # Required fields
+            full_name = row.get('full_name', '').strip()
+            admission_number = row.get('admission_number', '').strip()
+            class_name = row.get('class', '').strip()
+            gender = row.get('gender', 'male').strip().lower()
+            
+            if not full_name or not admission_number:
+                errors.append(f"Row {row_num}: Missing required fields (full_name or admission_number)")
+                continue
+            
+            # Check if admission number exists
+            existing = await db.students.find_one({"admission_number": admission_number})
+            if existing:
+                errors.append(f"Row {row_num}: Admission number {admission_number} already exists")
+                continue
+            
+            # Find or create class
+            class_doc = await db.classes.find_one({"name": class_name}, {"_id": 0})
+            if not class_doc:
+                # Try to match by level
+                level_match = None
+                for level in ["JSS1", "JSS2", "JSS3", "SS1", "SS2", "SS3"]:
+                    if level in class_name.upper():
+                        level_match = level
+                        break
+                
+                if level_match:
+                    class_doc = await db.classes.find_one({"level": level_match}, {"_id": 0})
+            
+            class_id = class_doc["id"] if class_doc else None
+            
+            # Find parent by email if provided
+            parent_email = row.get('parent_email', '').strip()
+            parent_id = None
+            if parent_email:
+                parent = await db.users.find_one({"email": parent_email, "role": "parent"}, {"_id": 0})
+                if parent:
+                    parent_id = parent["id"]
+            
+            student_id = str(uuid.uuid4())
+            student_doc = {
+                "id": student_id,
+                "full_name": full_name,
+                "admission_number": admission_number,
+                "class_id": class_id,
+                "class_name": class_doc["name"] if class_doc else class_name,
+                "gender": gender if gender in ["male", "female"] else "male",
+                "date_of_birth": row.get('date_of_birth', '').strip() or None,
+                "parent_id": parent_id,
+                "address": row.get('address', '').strip() or None,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            await db.students.insert_one(student_doc)
+            created += 1
+            
+        except Exception as e:
+            errors.append(f"Row {row_num}: {str(e)}")
+    
+    return {
+        "message": f"Successfully created {created} students",
+        "created": created,
+        "errors": errors
+    }
+
+@api_router.get("/students/csv-template")
+async def get_csv_template():
+    """Return a CSV template for student upload"""
+    template = """full_name,admission_number,class,gender,date_of_birth,parent_email,address
+John Doe,QRL/2025/0001,JSS1 A,male,2012-05-15,parent@email.com,123 Lagos Street
+Jane Smith,QRL/2025/0002,JSS1 A,female,2012-08-20,parent2@email.com,456 Abuja Road"""
+    
+    return {"template": template, "fields": [
+        {"name": "full_name", "required": True, "description": "Student's full name"},
+        {"name": "admission_number", "required": True, "description": "Unique admission number"},
+        {"name": "class", "required": False, "description": "Class name (e.g., JSS1 A)"},
+        {"name": "gender", "required": False, "description": "male or female"},
+        {"name": "date_of_birth", "required": False, "description": "YYYY-MM-DD format"},
+        {"name": "parent_email", "required": False, "description": "Parent's registered email"},
+        {"name": "address", "required": False, "description": "Student's address"}
+    ]}
+
 # ============ DASHBOARD STATS ============
 
 @api_router.get("/dashboard/stats")
