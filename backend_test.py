@@ -721,6 +721,13 @@ def main():
     if admin_login[0]:
         tester.test_csv_upload_apis()
 
+    # Test 12: User Management APIs
+    print("\n" + "="*50)
+    print("TESTING: User Management APIs")
+    print("="*50)
+    if admin_login[0]:
+        tester.test_user_management_apis()
+
     # Cleanup
     tester.cleanup_test_data()
 
