@@ -132,7 +132,30 @@ export const Onboarding = () => {
 
                 setCurrentStep(3);
             } catch (err) {
-                toast.error(err.response?.data?.detail || 'Failed to create admin account');
+                // detailed error handling
+                if (err.response?.data?.detail?.includes('Email already registered')) {
+                    // Try logging in instead
+                    try {
+                        await authApi.login(admin.email, admin.password);
+                        // Login success! Treat as admin created.
+                        setAdminEmail(admin.email);
+
+                        // Upload logo if provided
+                        if (logoFile) {
+                            try {
+                                await schoolApi.uploadLogo(logoFile);
+                            } catch (e) { /* silently fail logo upload */ }
+                        }
+
+                        toast.success('Account verified! Continuing...');
+                        setCurrentStep(3);
+                        return;
+                    } catch (loginErr) {
+                        toast.error('Email already registered, and password incorrect. Please try another email or log in.');
+                    }
+                } else {
+                    toast.error(err.response?.data?.detail || 'Failed to create admin account');
+                }
             } finally {
                 setLoading(false);
             }

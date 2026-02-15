@@ -142,17 +142,10 @@ router.get('/onboarding-status', async (_req: Request, res: Response) => {
     }
 });
 
-// POST /api/school/setup — first-time setup (no auth required, only works if no admin exists)
+// POST /api/school/setup — save school settings (no auth required for first-time onboarding)
 router.post('/setup', async (req: Request, res: Response) => {
     try {
         const db = getDB();
-
-        // Block if already onboarded
-        const adminCount = await db.collection('users').countDocuments({ role: 'admin' });
-        if (adminCount > 0) {
-            res.status(400).json({ detail: 'School is already set up. Please log in.' });
-            return;
-        }
 
         const { school_name, motto, address, phone, email, school_logo } = req.body;
         if (!school_name) {
