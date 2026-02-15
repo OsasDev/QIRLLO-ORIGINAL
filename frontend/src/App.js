@@ -4,6 +4,7 @@ import { Toaster } from './components/ui/sonner';
 
 // Pages
 import { Login } from './pages/Login';
+import { Onboarding } from './pages/Onboarding';
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -35,7 +36,7 @@ import './App.css';
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -43,18 +44,18 @@ const ProtectedRoute = ({ children }) => {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return children;
 };
 
 // Home redirect based on role
 const HomeRedirect = () => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -62,11 +63,11 @@ const HomeRedirect = () => {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <Navigate to={`/${user.role}`} replace />;
 };
 
@@ -77,10 +78,11 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
-          
+          <Route path="/onboarding" element={<Onboarding />} />
+
           {/* Home Redirect */}
           <Route path="/" element={<HomeRedirect />} />
-          
+
           {/* Admin Routes */}
           <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
@@ -93,21 +95,21 @@ function App() {
           <Route path="/admin/fees" element={<ProtectedRoute><Fees /></ProtectedRoute>} />
           <Route path="/admin/attendance" element={<ProtectedRoute><AdminAttendanceSummary /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-          
+
           {/* Teacher Routes */}
           <Route path="/teacher" element={<ProtectedRoute><TeacherDashboard /></ProtectedRoute>} />
           <Route path="/teacher/classes" element={<ProtectedRoute><TeacherClasses /></ProtectedRoute>} />
           <Route path="/teacher/grades" element={<ProtectedRoute><GradeEntry /></ProtectedRoute>} />
           <Route path="/teacher/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
           <Route path="/teacher/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
-          
+
           {/* Parent Routes */}
           <Route path="/parent" element={<ProtectedRoute><ParentDashboard /></ProtectedRoute>} />
           <Route path="/parent/results" element={<ProtectedRoute><ParentResults /></ProtectedRoute>} />
           <Route path="/parent/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
           <Route path="/parent/announcements" element={<ProtectedRoute><ParentAnnouncements /></ProtectedRoute>} />
           <Route path="/parent/attendance-fees" element={<ProtectedRoute><ParentAttendanceFees /></ProtectedRoute>} />
-          
+
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

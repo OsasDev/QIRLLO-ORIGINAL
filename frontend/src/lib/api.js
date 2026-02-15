@@ -139,4 +139,20 @@ export const seedApi = {
   seed: () => api.post('/seed'),
 };
 
+// School API
+export const schoolApi = {
+  getOnboardingStatus: () => api.get('/school/onboarding-status'),
+  getSettings: () => api.get('/school/settings'),
+  setup: (data) => api.post('/school/setup', data),
+  updateSettings: (data) => api.put('/school/settings', data),
+  uploadLogo: (file) => {
+    const formData = new FormData();
+    formData.append('logo', file);
+    return api.post('/school/logo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+};
+
 export default api;
+

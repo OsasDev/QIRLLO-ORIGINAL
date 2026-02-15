@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { seedApi } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -13,7 +12,6 @@ export const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [seeding, setSeeding] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -32,26 +30,6 @@ export const Login = () => {
     }
   };
 
-  const handleSeedData = async () => {
-    setSeeding(true);
-    try {
-      const response = await seedApi.seed();
-      toast.success('Sample data created! You can now login.');
-      setEmail('admin@qirllo.com');
-      setPassword('admin123');
-    } catch (error) {
-      if (error.response?.data?.message?.includes('already seeded')) {
-        toast.info('Database already has sample data');
-        setEmail('admin@qirllo.com');
-        setPassword('admin123');
-      } else {
-        toast.error('Failed to seed data');
-      }
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   return (
     <div className="login-split">
       {/* Hero Image (Desktop only) */}
@@ -62,10 +40,10 @@ export const Login = () => {
         />
         <div className="absolute inset-0 flex flex-col justify-end p-12 z-10">
           <h2 className="text-4xl font-bold text-white mb-4">
-            Ogunwole Private School
+            Welcome Back
           </h2>
           <p className="text-white/90 text-lg max-w-md">
-            Powered by QIRLLO - Complete school management solution for the modern Nigerian educational system.
+            Powered by QIRLLO — Complete school management solution for the modern Nigerian educational system.
           </p>
         </div>
       </div>
@@ -151,35 +129,6 @@ export const Login = () => {
               )}
             </Button>
           </form>
-
-          <div className="mt-8 pt-8 border-t border-border">
-            <p className="text-center text-sm text-muted-foreground mb-4">
-              First time? Load sample data to explore
-            </p>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleSeedData}
-              disabled={seeding}
-              data-testid="seed-data-btn"
-            >
-              {seeding ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Loading sample data...
-                </>
-              ) : (
-                'Load Nigerian School Sample Data'
-              )}
-            </Button>
-            
-            <div className="mt-4 p-4 bg-muted rounded-lg text-sm">
-              <p className="font-medium mb-2">Demo Credentials:</p>
-              <p className="text-muted-foreground">Admin: admin@qirllo.com / admin123</p>
-              <p className="text-muted-foreground">Teacher: okonkwo@qirllo.com / teacher123</p>
-              <p className="text-muted-foreground">Parent: ojo@gmail.com / parent123</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

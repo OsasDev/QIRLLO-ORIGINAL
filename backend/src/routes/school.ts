@@ -127,4 +127,62 @@ router.post('/logo', authMiddleware, upload.single('logo'), async (req: Request,
     }
 });
 
+// GET /api/school/onboarding-status
+router.get('/onboarding-status', async (_req: Request, res: Response) => {
+    try {
+        const db = getDB();
+        const adminCount = await db.collection('users').countDocuments({ role: 'admin' });
+        const settings = await db.collection('school_settings').findOne({}, { projection: { _id: 0 } });
+
+        const isOnboarded = adminCount > 0 && settings !== null && settings.school_name !== 'QIRLLO School';
+
+        res.json({ is_onboarded: isOnboarded });
+    } catch (err: any) {
+        res.status(500).json({ detail: err.message });
+    }
+});
+
+// POST /api/school/setup — first-time setup (no auth required, only works if no admin exists)
+router.post('/setup', async (req: Request, res: Response) => {
+    try {
+        const db = getDB();
+
+        // Block if already onboarded
+        const adminCount = await db.collection('users').countDocuments({ role: 'admin' });
+        if (adminCount > 0) {
+            res.status(400).json({ detail: 'School is already set up. Please log in.' });
+            return;
+        }
+
+        const { school_name, motto, address, phone, email, school_logo } = req.body;
+        if (!school_name) {
+            res.status(400).json({ detail: 'School name is required' });
+            return;
+        }
+
+        await db.collection('school_settings').updateOne(
+            {},
+            {
+                $set: {
+                    school_name,
+                    motto: motto || null,
+                    address: address || null,
+                    phone: phone || null,
+                    email: email || null,
+                    school_logo: school_logo || null,
+                    updated_at: nowISO(),
+                },
+                $setOnInsert: { id: 'default' },
+            },
+            { upsert: true }
+        );
+
+        const settings = await db.collection('school_settings').findOne({}, { projection: { _id: 0 } });
+        res.json(settings);
+    } catch (err: any) {
+        res.status(500).json({ detail: err.message });
+    }
+});
+
 export default router;
+

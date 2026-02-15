@@ -286,3 +286,165 @@
     border: 2px solid #000;
   }
 }
+
+/* ========= Onboarding Wizard ========= */
+.onboarding-container {
+  display: flex;
+  min-height: 100vh;
+  background: hsl(var(--muted) / 0.3);
+}
+
+.onboarding-stepper {
+  display: none;
+  width: 320px;
+  background: white;
+  border-right: 1px solid hsl(var(--border));
+  padding: 32px 24px;
+  flex-shrink: 0;
+}
+
+@media (min-width: 1024px) {
+  .onboarding-stepper {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.stepper-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 48px;
+}
+
+.stepper-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stepper-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  transition: all 0.2s;
+  color: hsl(var(--muted-foreground));
+}
+
+.stepper-step.active {
+  background: hsl(var(--primary) / 0.08);
+  color: hsl(var(--primary));
+}
+
+.stepper-step.complete {
+  color: hsl(142 71% 45%);
+}
+
+.step-indicator {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(var(--muted));
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.stepper-step.active .step-indicator {
+  background: hsl(var(--primary));
+  color: white;
+}
+
+.stepper-step.complete .step-indicator {
+  background: hsl(142 71% 45% / 0.15);
+}
+
+.step-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.step-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.step-desc {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.onboarding-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.onboarding-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 580px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid hsl(var(--border));
+}
+
+.logo-upload-zone {
+  width: 80px;
+  height: 80px;
+  border: 2px dashed hsl(var(--border));
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.logo-upload-zone:hover {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.03);
+}
+
+.class-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.class-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: hsl(var(--primary) / 0.08);
+  color: hsl(var(--primary));
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Mobile stepper header for onboarding */
+@media (max-width: 1023px) {
+  .onboarding-container {
+    flex-direction: column;
+  }
+  .onboarding-content {
+    padding: 16px;
+    align-items: flex-start;
+  }
+  .onboarding-card {
+    padding: 24px;
+    margin-top: 16px;
+  }
+}
+
