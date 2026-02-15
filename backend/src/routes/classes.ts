@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getDB } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { nowISO } from '../helpers';
+import { hashPassword, nowISO, generateDummyPassword } from '../helpers';
 import { AuthRequest } from '../types';
 
 const router = Router();
@@ -156,4 +156,88 @@ router.delete('/:classId', authMiddleware, async (req: Request, res: Response) =
     }
 });
 
+// POST /api/classes/:classId/assign-teacher
+router.post('/:classId/assign-teacher', authMiddleware, async (req: Request, res: Response) => {
+    try {
+        const currentUser = (req as AuthRequest).user!;
+        if (currentUser.role !== 'admin') {
+            res.status(403).json({ detail: 'Admin access required' });
+            return;
+        }
+
+        const { email, full_name, phone } = req.body;
+        if (!email || !full_name) {
+            res.status(400).json({ detail: 'Email and full_name are required' });
+            return;
+        }
+
+        const db = getDB();
+        const classDoc = await db.collection('classes').findOne(
+            { id: req.params.classId },
+            { projection: { _id: 0 } }
+        );
+        if (!classDoc) {
+            res.status(404).json({ detail: 'Class not found' });
+            return;
+        }
+
+        let teacherId: string;
+        let teacherCredentials: any = null;
+
+        // Check if teacher already exists
+        const existingTeacher = await db.collection('users').findOne(
+            { email, role: 'teacher' },
+            { projection: { _id: 0 } }
+        );
+
+        if (existingTeacher) {
+            teacherId = existingTeacher.id;
+        } else {
+            // Auto-create teacher account with dummy password
+            const dummyPassword = generateDummyPassword();
+            teacherId = uuidv4();
+            const teacherDoc = {
+                id: teacherId,
+                email,
+                password_hash: hashPassword(dummyPassword),
+                full_name,
+                role: 'teacher',
+                phone: phone || null,
+                must_change_password: true,
+                created_at: nowISO(),
+            };
+            await db.collection('users').insertOne(teacherDoc);
+            teacherCredentials = { email, password: dummyPassword };
+        }
+
+        // Assign teacher to class
+        await db.collection('classes').updateOne(
+            { id: req.params.classId },
+            { $set: { teacher_id: teacherId, teacher_name: full_name } }
+        );
+
+        const updatedClass = await db.collection('classes').findOne(
+            { id: req.params.classId },
+            { projection: { _id: 0 } }
+        );
+
+        const response: any = {
+            message: existingTeacher
+                ? `Teacher ${full_name} assigned to ${classDoc.name}`
+                : `Teacher account created and assigned to ${classDoc.name}`,
+            class: updatedClass,
+        };
+
+        if (teacherCredentials) {
+            response.teacher_credentials = teacherCredentials;
+            response.teacher_must_change_password = true;
+        }
+
+        res.json(response);
+    } catch (err: any) {
+        res.status(500).json({ detail: err.message });
+    }
+});
+
 export default router;
+

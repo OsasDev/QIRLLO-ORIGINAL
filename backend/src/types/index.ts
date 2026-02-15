@@ -35,6 +35,7 @@ export interface UserDoc {
     full_name: string;
     role: string;
     phone?: string | null;
+    must_change_password?: boolean;
     created_at: string;
 }
 
@@ -59,7 +60,13 @@ export interface StudentResponse {
     gender: string;
     date_of_birth?: string | null;
     parent_id?: string | null;
+    parent_name?: string | null;
+    parent_email?: string | null;
+    parent_phone?: string | null;
     address?: string | null;
+    total_fees?: number;
+    fees_paid?: number;
+    fee_balance?: number;
     created_at: string;
 }
 
@@ -267,6 +274,19 @@ export interface StudentFeeBalance {
     total_paid: number;
     balance: number;
     payments: FeePaymentResponse[];
+}
+
+// ============ SCHOOL SETTINGS TYPES ============
+
+export interface SchoolSettings {
+    id: string;
+    school_name: string;
+    school_logo?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    motto?: string | null;
+    updated_at: string;
 }
 
 // ============ AUTH TYPES ============

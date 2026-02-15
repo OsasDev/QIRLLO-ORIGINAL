@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getDB } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { nowISO } from '../helpers';
+import { hashPassword, nowISO, generateDummyPassword } from '../helpers';
 import { AuthRequest } from '../types';
 import multer from 'multer';
 import csv from 'csv-parser';
@@ -32,6 +32,42 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
         const studentId = uuidv4();
         const classDoc = await db.collection('classes').findOne({ id: data.class_id }, { projection: { _id: 0 } });
 
+        // Resolve or auto-create parent
+        let parentId = data.parent_id || null;
+        let parentName = data.parent_name || null;
+        let parentEmail = data.parent_email || null;
+        let parentPhone = data.parent_phone || null;
+        let parentCredentials: any = null;
+
+        if (parentEmail && !parentId) {
+            const existingParent = await db.collection('users').findOne(
+                { email: parentEmail, role: 'parent' },
+                { projection: { _id: 0 } }
+            );
+            if (existingParent) {
+                parentId = existingParent.id;
+                parentName = parentName || existingParent.full_name;
+                parentPhone = parentPhone || existingParent.phone;
+            } else if (parentName) {
+                // Auto-create parent account
+                const dummyPassword = generateDummyPassword();
+                const newParentId = uuidv4();
+                const parentDoc = {
+                    id: newParentId,
+                    email: parentEmail,
+                    password_hash: hashPassword(dummyPassword),
+                    full_name: parentName,
+                    role: 'parent',
+                    phone: parentPhone || null,
+                    must_change_password: true,
+                    created_at: nowISO(),
+                };
+                await db.collection('users').insertOne(parentDoc);
+                parentId = newParentId;
+                parentCredentials = { email: parentEmail, password: dummyPassword };
+            }
+        }
+
         const studentDoc = {
             id: studentId,
             full_name: data.full_name,
@@ -40,12 +76,20 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
             class_name: classDoc ? classDoc.name : null,
             gender: data.gender,
             date_of_birth: data.date_of_birth || null,
-            parent_id: data.parent_id || null,
+            parent_id: parentId,
+            parent_name: parentName,
+            parent_email: parentEmail,
+            parent_phone: parentPhone,
             address: data.address || null,
             created_at: nowISO(),
         };
         await db.collection('students').insertOne(studentDoc);
-        res.json(studentDoc);
+
+        const response: any = { ...studentDoc };
+        if (parentCredentials) {
+            response.parent_credentials = parentCredentials;
+        }
+        res.json(response);
     } catch (err: any) {
         res.status(500).json({ detail: err.message });
     }
@@ -66,6 +110,44 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
             .find(query, { projection: { _id: 0 } })
             .toArray();
 
+        // Enrich with fee data
+        for (const student of students) {
+            // Get fee structure for the student's class level
+            const classDoc = student.class_id
+                ? await db.collection('classes').findOne({ id: student.class_id }, { projection: { _id: 0 } })
+                : null;
+
+            let totalFees = 0;
+            if (classDoc) {
+                const feeStructures = await db.collection('fee_structures')
+                    .find({ class_level: classDoc.level }, { projection: { _id: 0 } })
+                    .toArray();
+                totalFees = feeStructures.reduce((sum: number, f: any) => sum + (f.total || 0), 0);
+            }
+
+            const payments = await db.collection('fee_payments')
+                .find({ student_id: student.id }, { projection: { _id: 0 } })
+                .toArray();
+            const feesPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+
+            student.total_fees = totalFees;
+            student.fees_paid = feesPaid;
+            student.fee_balance = totalFees - feesPaid;
+
+            // Resolve parent info if not stored on student doc
+            if (student.parent_id && !student.parent_name) {
+                const parent = await db.collection('users').findOne(
+                    { id: student.parent_id },
+                    { projection: { _id: 0, password_hash: 0 } }
+                );
+                if (parent) {
+                    student.parent_name = parent.full_name;
+                    student.parent_email = parent.email;
+                    student.parent_phone = parent.phone || null;
+                }
+            }
+        }
+
         res.json(students);
     } catch (err: any) {
         res.status(500).json({ detail: err.message });
@@ -74,9 +156,9 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 
 // GET /api/students/csv-template
 router.get('/csv-template', async (_req: Request, res: Response) => {
-    const template = `full_name,admission_number,class,gender,date_of_birth,parent_email,address
-John Doe,QRL/2025/0001,JSS1 A,male,2012-05-15,parent@email.com,123 Lagos Street
-Jane Smith,QRL/2025/0002,JSS1 A,female,2012-08-20,parent2@email.com,456 Abuja Road`;
+    const template = `full_name,admission_number,class,gender,date_of_birth,parent_name,parent_email,parent_phone,address
+John Doe,QRL/2025/0001,JSS1 A,male,2012-05-15,Mr. Ade Doe,parent@email.com,+234 801 234 5678,123 Lagos Street
+Jane Smith,QRL/2025/0002,JSS1 A,female,2012-08-20,Mrs. Nkechi Smith,parent2@email.com,+234 802 345 6789,456 Abuja Road`;
 
     res.json({
         template,
@@ -86,7 +168,9 @@ Jane Smith,QRL/2025/0002,JSS1 A,female,2012-08-20,parent2@email.com,456 Abuja Ro
             { name: 'class', required: false, description: 'Class name (e.g., JSS1 A)' },
             { name: 'gender', required: false, description: 'male or female' },
             { name: 'date_of_birth', required: false, description: 'YYYY-MM-DD format' },
-            { name: 'parent_email', required: false, description: "Parent's registered email" },
+            { name: 'parent_name', required: false, description: "Parent's full name (auto-creates account if email provided)" },
+            { name: 'parent_email', required: false, description: "Parent's email (used for login)" },
+            { name: 'parent_phone', required: false, description: "Parent's phone number" },
             { name: 'address', required: false, description: "Student's address" },
         ],
     });
@@ -104,6 +188,20 @@ router.get('/:studentId', authMiddleware, async (req: Request, res: Response) =>
             res.status(404).json({ detail: 'Student not found' });
             return;
         }
+
+        // Enrich with parent info
+        if (student.parent_id && !student.parent_name) {
+            const parent = await db.collection('users').findOne(
+                { id: student.parent_id },
+                { projection: { _id: 0, password_hash: 0 } }
+            );
+            if (parent) {
+                student.parent_name = parent.full_name;
+                student.parent_email = parent.email;
+                student.parent_phone = parent.phone || null;
+            }
+        }
+
         res.json(student);
     } catch (err: any) {
         res.status(500).json({ detail: err.message });
@@ -187,8 +285,10 @@ router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Re
                 .on('error', reject);
         });
 
-        let created = 0;
+        let studentsCreated = 0;
+        let parentsCreated = 0;
         const errors: string[] = [];
+        const parentCredentials: Array<{ email: string; password: string; name: string }> = [];
         const levels = ['JSS1', 'JSS2', 'JSS3', 'SS1', 'SS2', 'SS3'];
 
         for (let i = 0; i < rows.length; i++) {
@@ -199,6 +299,9 @@ router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Re
                 const admission_number = (row.admission_number || '').trim();
                 const className = (row.class || '').trim();
                 const gender = (row.gender || 'male').trim().toLowerCase();
+                const parentName = (row.parent_name || '').trim();
+                const parentEmail = (row.parent_email || '').trim();
+                const parentPhone = (row.parent_phone || '').trim();
 
                 if (!full_name || !admission_number) {
                     errors.push(`Row ${rowNum}: Missing required fields (full_name or admission_number)`);
@@ -211,6 +314,7 @@ router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Re
                     continue;
                 }
 
+                // Resolve class
                 let classDoc = await db.collection('classes').findOne({ name: className }, { projection: { _id: 0 } });
                 if (!classDoc) {
                     const levelMatch = levels.find(l => className.toUpperCase().includes(l));
@@ -218,17 +322,45 @@ router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Re
                         classDoc = await db.collection('classes').findOne({ level: levelMatch }, { projection: { _id: 0 } });
                     }
                 }
-
                 const classId = classDoc ? classDoc.id : null;
 
-                const parentEmail = (row.parent_email || '').trim();
+                // Resolve or auto-create parent
                 let parentId: string | null = null;
+                let resolvedParentName: string | null = parentName || null;
+                let resolvedParentPhone: string | null = parentPhone || null;
+
                 if (parentEmail) {
-                    const parent = await db.collection('users').findOne(
+                    const existingParent = await db.collection('users').findOne(
                         { email: parentEmail, role: 'parent' },
                         { projection: { _id: 0 } }
                     );
-                    if (parent) parentId = parent.id;
+                    if (existingParent) {
+                        parentId = existingParent.id;
+                        resolvedParentName = resolvedParentName || existingParent.full_name;
+                        resolvedParentPhone = resolvedParentPhone || existingParent.phone;
+                    } else if (parentName) {
+                        // Auto-create parent account with dummy password
+                        const dummyPassword = generateDummyPassword();
+                        const newParentId = uuidv4();
+                        const parentDoc = {
+                            id: newParentId,
+                            email: parentEmail,
+                            password_hash: hashPassword(dummyPassword),
+                            full_name: parentName,
+                            role: 'parent',
+                            phone: parentPhone || null,
+                            must_change_password: true,
+                            created_at: nowISO(),
+                        };
+                        await db.collection('users').insertOne(parentDoc);
+                        parentId = newParentId;
+                        parentsCreated++;
+                        parentCredentials.push({
+                            email: parentEmail,
+                            password: dummyPassword,
+                            name: parentName,
+                        });
+                    }
                 }
 
                 const studentId = uuidv4();
@@ -241,18 +373,27 @@ router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Re
                     gender: ['male', 'female'].includes(gender) ? gender : 'male',
                     date_of_birth: (row.date_of_birth || '').trim() || null,
                     parent_id: parentId,
+                    parent_name: resolvedParentName,
+                    parent_email: parentEmail || null,
+                    parent_phone: resolvedParentPhone,
                     address: (row.address || '').trim() || null,
                     created_at: nowISO(),
                 };
 
                 await db.collection('students').insertOne(studentDoc);
-                created++;
+                studentsCreated++;
             } catch (e: any) {
                 errors.push(`Row ${rowNum}: ${e.message}`);
             }
         }
 
-        res.json({ message: `Successfully created ${created} students`, created, errors });
+        res.json({
+            message: `Successfully created ${studentsCreated} students and ${parentsCreated} parent accounts`,
+            students_created: studentsCreated,
+            parents_created: parentsCreated,
+            parent_credentials: parentCredentials,
+            errors,
+        });
     } catch (err: any) {
         res.status(500).json({ detail: err.message });
     }

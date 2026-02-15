@@ -11,6 +11,14 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
         const currentUser = (req as AuthRequest).user!;
         const db = getDB();
 
+        // Fetch school settings for all roles
+        const schoolSettings = await db.collection('school_settings').findOne(
+            {},
+            { projection: { _id: 0 } }
+        );
+        const school_name = schoolSettings?.school_name || 'QIRLLO School';
+        const school_logo = schoolSettings?.school_logo || null;
+
         if (currentUser.role === 'admin') {
             const totalStudents = await db.collection('students').countDocuments({});
             const totalTeachers = await db.collection('users').countDocuments({ role: 'teacher' });
@@ -31,6 +39,8 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
             const todayAttendance = await db.collection('attendance').countDocuments({ date: today });
 
             res.json({
+                school_name,
+                school_logo,
                 total_students: totalStudents,
                 total_teachers: totalTeachers,
                 total_parents: totalParents,
@@ -66,6 +76,8 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
             });
 
             res.json({
+                school_name,
+                school_logo,
                 total_classes: classIds.length,
                 total_subjects: subjects.length,
                 total_students: totalStudents,
@@ -103,6 +115,8 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
             }
 
             res.json({
+                school_name,
+                school_logo,
                 total_children: children.length,
                 results_available: resultsCount,
                 unread_messages: unreadMessages,
@@ -113,10 +127,11 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
             return;
         }
 
-        res.json({});
+        res.json({ school_name, school_logo });
     } catch (err: any) {
         res.status(500).json({ detail: err.message });
     }
 });
 
 export default router;
+

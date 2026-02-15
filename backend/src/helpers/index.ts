@@ -24,3 +24,12 @@ export function nowISO(): string {
 export function todayDateString(): string {
     return new Date().toISOString().split('T')[0];
 }
+
+export function generateDummyPassword(length: number = 8): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+}

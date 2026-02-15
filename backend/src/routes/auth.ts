@@ -4,8 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { JWT_SECRET, JWT_EXPIRATION_HOURS } from '../config';
 import { getDB } from '../db';
 import { hashPassword, verifyPassword, nowISO } from '../helpers';
-import { authMiddleware } from '../middleware/auth';
 import { AuthRequest, UserCreate, UserLogin } from '../types';
+import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 
@@ -81,6 +81,7 @@ router.post('/login', async (req: Request, res: Response) => {
         res.json({
             access_token: token,
             token_type: 'bearer',
+            must_change_password: user.must_change_password === true,
             user: {
                 id: user.id,
                 email: user.email,
@@ -104,8 +105,49 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
         full_name: user.full_name,
         role: user.role,
         phone: user.phone || null,
+        must_change_password: user.must_change_password === true,
         created_at: user.created_at,
     });
+});
+
+// PUT /api/auth/change-password
+router.put('/change-password', authMiddleware, async (req: Request, res: Response) => {
+    try {
+        const currentUser = (req as AuthRequest).user!;
+        const { current_password, new_password } = req.body;
+
+        if (!current_password || !new_password) {
+            res.status(400).json({ detail: 'Both current_password and new_password are required' });
+            return;
+        }
+
+        if (new_password.length < 6) {
+            res.status(400).json({ detail: 'New password must be at least 6 characters' });
+            return;
+        }
+
+        const db = getDB();
+        const user = await db.collection('users').findOne({ id: currentUser.id });
+
+        if (!user || !verifyPassword(current_password, user.password_hash)) {
+            res.status(401).json({ detail: 'Current password is incorrect' });
+            return;
+        }
+
+        await db.collection('users').updateOne(
+            { id: currentUser.id },
+            {
+                $set: {
+                    password_hash: hashPassword(new_password),
+                    must_change_password: false,
+                },
+            }
+        );
+
+        res.json({ message: 'Password changed successfully' });
+    } catch (err: any) {
+        res.status(500).json({ detail: err.message });
+    }
 });
 
 export default router;

@@ -16,6 +16,7 @@ import attendanceRoutes from './routes/attendance';
 import feesRoutes from './routes/fees';
 import dashboardRoutes from './routes/dashboard';
 import seedRoutes from './routes/seed';
+import schoolRoutes from './routes/school';
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/fees', feesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/seed', seedRoutes);
+app.use('/api/school', schoolRoutes);
 
 // Standalone /api/teachers and /api/parents routes (frontend expects top-level paths)
 import { authMiddleware } from './middleware/auth';
