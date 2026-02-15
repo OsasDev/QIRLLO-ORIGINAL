@@ -166,12 +166,15 @@ export const Classes = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Class Teacher</Label>
-                  <Select value={form.teacher_id} onValueChange={(value) => setForm({ ...form, teacher_id: value })}>
+                  <Select
+                    value={form.teacher_id || '_none'}
+                    onValueChange={(value) => setForm({ ...form, teacher_id: value === '_none' ? '' : value })}
+                  >
                     <SelectTrigger data-testid="class-teacher-select">
                       <SelectValue placeholder="Select teacher" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No teacher assigned</SelectItem>
+                      <SelectItem value="_none">No teacher assigned</SelectItem>
                       {teachers.map((teacher) => (
                         <SelectItem key={teacher.id} value={teacher.id}>{teacher.full_name}</SelectItem>
                       ))}
