@@ -5,6 +5,7 @@ import { Toaster } from './components/ui/sonner';
 // Pages
 import { Login } from './pages/Login';
 import { Onboarding } from './pages/Onboarding';
+import { ChangePassword } from './pages/ChangePassword';
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -49,6 +50,11 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // Force password change before accessing any protected route
+  if (user.must_change_password) {
+    return <Navigate to="/change-password" replace />;
+  }
+
   return children;
 };
 
@@ -79,6 +85,7 @@ function App() {
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/change-password" element={<ChangePassword />} />
 
           {/* Home Redirect */}
           <Route path="/" element={<HomeRedirect />} />

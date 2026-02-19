@@ -4,6 +4,10 @@ import { getDB } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { hashPassword, nowISO, generateDummyPassword } from '../helpers';
 import { AuthRequest } from '../types';
+import multer from 'multer';
+import * as XLSX from 'xlsx';
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = Router();
 
@@ -71,6 +75,38 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
         }
 
         res.json(classes);
+    } catch (err: any) {
+        res.status(500).json({ detail: err.message });
+    }
+});
+
+// GET /api/classes/xlsx-template  (must be before /:classId to avoid being shadowed)
+router.get('/xlsx-template', async (_req: Request, res: Response) => {
+    try {
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: Classes
+        const classesData = [
+            { name: 'JSS1 A', level: 'JSS1', section: 'A', academic_year: '2025/2026' },
+            { name: 'JSS1 B', level: 'JSS1', section: 'B', academic_year: '2025/2026' },
+        ];
+        const wsClasses = XLSX.utils.json_to_sheet(classesData);
+        XLSX.utils.book_append_sheet(wb, wsClasses, "Classes");
+
+        // Sheet 2: Fees
+        const feesData = [
+            { class_level: 'JSS1', amount: 50000, description: 'Tuition Fee' },
+            { class_level: 'JSS1', amount: 5000, description: 'Exam Fee' },
+            { class_level: 'SS1', amount: 60000, description: 'Tuition Fee' },
+        ];
+        const wsFees = XLSX.utils.json_to_sheet(feesData);
+        XLSX.utils.book_append_sheet(wb, wsFees, "Fees");
+
+        const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename="classes_fees_template.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buf);
     } catch (err: any) {
         res.status(500).json({ detail: err.message });
     }
@@ -234,6 +270,99 @@ router.post('/:classId/assign-teacher', authMiddleware, async (req: Request, res
         }
 
         res.json(response);
+    } catch (err: any) {
+        res.status(500).json({ detail: err.message });
+    }
+});
+
+
+
+// POST /api/classes/upload-xlsx
+router.post('/upload-xlsx', authMiddleware, upload.single('file'), async (req: Request, res: Response) => {
+    try {
+        const currentUser = (req as AuthRequest).user!;
+        if (currentUser.role !== 'admin') {
+            res.status(403).json({ detail: 'Admin access required' });
+            return;
+        }
+
+        if (!req.file) {
+            res.status(400).json({ detail: 'No file uploaded' });
+            return;
+        }
+
+        const db = getDB();
+        const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+
+        // Parse Classes Sheet
+        const classesSheet = wb.Sheets["Classes"];
+        let classesCreated = 0;
+        let feesCreated = 0;
+        const errors: string[] = [];
+
+        if (classesSheet) {
+            const classesData = XLSX.utils.sheet_to_json(classesSheet);
+            for (const row of classesData as any[]) {
+                try {
+                    const name = (row.name || '').trim();
+                    const level = (row.level || '').trim();
+                    if (!name || !level) continue;
+
+                    // Check if class exists
+                    const existing = await db.collection('classes').findOne({ name });
+                    if (!existing) {
+                        const classDoc = {
+                            id: uuidv4(),
+                            name,
+                            level,
+                            section: row.section || '',
+                            teacher_id: null,
+                            teacher_name: null,
+                            academic_year: row.academic_year || '2025/2026',
+                            student_count: 0,
+                            created_at: nowISO(),
+                        };
+                        await db.collection('classes').insertOne(classDoc);
+                        classesCreated++;
+                    }
+                } catch (e: any) {
+                    errors.push(`Class Error: ${e.message}`);
+                }
+            }
+        }
+
+        // Parse Fees Sheet
+        const feesSheet = wb.Sheets["Fees"];
+        if (feesSheet) {
+            const feesData = XLSX.utils.sheet_to_json(feesSheet);
+            for (const row of feesData as any[]) {
+                try {
+                    const level = (row.class_level || '').trim();
+                    const amount = Number(row.amount);
+                    if (!level || isNaN(amount)) continue;
+
+                    const feeDoc = {
+                        id: uuidv4(),
+                        class_level: level,
+                        amount,
+                        description: row.description || 'School Fees',
+                        created_at: nowISO(),
+                    };
+                    await db.collection('fee_structures').insertOne(feeDoc);
+                    feesCreated++;
+                } catch (e: any) {
+                    errors.push(`Fee Error: ${e.message}`);
+                }
+            }
+        }
+
+        res.json({
+            message: `Processed upload`,
+            classes_created: classesCreated,
+            fees_created: feesCreated,
+            errors
+        });
+
     } catch (err: any) {
         res.status(500).json({ detail: err.message });
     }

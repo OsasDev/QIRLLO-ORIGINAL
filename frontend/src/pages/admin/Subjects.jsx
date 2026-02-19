@@ -137,8 +137,8 @@ export const Subjects = () => {
     setForm({ ...form, name: preset.name, code: preset.code });
   };
 
-  const filteredSubjects = filterClass === 'all' 
-    ? subjects 
+  const filteredSubjects = filterClass === 'all'
+    ? subjects
     : subjects.filter(s => s.class_id === filterClass);
 
   // Group subjects by class
@@ -225,12 +225,12 @@ export const Subjects = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Subject Teacher</Label>
-                  <Select value={form.teacher_id} onValueChange={(value) => setForm({ ...form, teacher_id: value })}>
+                  <Select value={form.teacher_id || '_none'} onValueChange={(value) => setForm({ ...form, teacher_id: value === '_none' ? '' : value })}>
                     <SelectTrigger data-testid="subject-teacher-select">
                       <SelectValue placeholder="Select teacher" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No teacher assigned</SelectItem>
+                      <SelectItem value="_none">No teacher assigned</SelectItem>
                       {teachers.map((teacher) => (
                         <SelectItem key={teacher.id} value={teacher.id}>{teacher.full_name}</SelectItem>
                       ))}

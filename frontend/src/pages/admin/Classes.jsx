@@ -19,8 +19,9 @@ import {
 } from '../../components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { classesApi, usersApi } from '../../lib/api';
+import { BulkUploadModal } from '../../components/BulkUploadModal';
 import { toast } from 'sonner';
-import { Plus, Users, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Users, Pencil, Trash2, Loader2, Upload } from 'lucide-react';
 
 const CLASS_LEVELS = ['JSS1', 'JSS2', 'JSS3', 'SS1', 'SS2', 'SS3'];
 
@@ -31,6 +32,7 @@ export const Classes = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
@@ -126,78 +128,95 @@ export const Classes = () => {
             <h1 className="text-2xl font-bold">Classes</h1>
             <p className="text-muted-foreground">Manage class sections and teacher assignments</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button data-testid="add-class-btn">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Class
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>{editingClass ? 'Edit Class' : 'Add New Class'}</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+          <div className="flex gap-2">
+            <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="bulk-upload-classes-btn">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Bulk Upload
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Bulk Upload Classes & Fees</DialogTitle>
+                </DialogHeader>
+                <BulkUploadModal type="classes_fees" onSuccess={() => { setUploadDialogOpen(false); loadData(); }} />
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+              <DialogTrigger asChild>
+                <Button data-testid="add-class-btn">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Class
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{editingClass ? 'Edit Class' : 'Add New Class'}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Level</Label>
+                      <Select value={form.level} onValueChange={(value) => setForm({ ...form, level: value })}>
+                        <SelectTrigger data-testid="class-level-select">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CLASS_LEVELS.map((level) => (
+                            <SelectItem key={level} value={level}>{level}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="section">Section</Label>
+                      <Input
+                        id="section"
+                        value={form.section}
+                        onChange={(e) => setForm({ ...form, section: e.target.value.toUpperCase() })}
+                        placeholder="A"
+                        maxLength={2}
+                        data-testid="class-section-input"
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-2">
-                    <Label>Level</Label>
-                    <Select value={form.level} onValueChange={(value) => setForm({ ...form, level: value })}>
-                      <SelectTrigger data-testid="class-level-select">
-                        <SelectValue />
+                    <Label>Class Teacher</Label>
+                    <Select
+                      value={form.teacher_id || '_none'}
+                      onValueChange={(value) => setForm({ ...form, teacher_id: value === '_none' ? '' : value })}
+                    >
+                      <SelectTrigger data-testid="class-teacher-select">
+                        <SelectValue placeholder="Select teacher" />
                       </SelectTrigger>
                       <SelectContent>
-                        {CLASS_LEVELS.map((level) => (
-                          <SelectItem key={level} value={level}>{level}</SelectItem>
+                        <SelectItem value="_none">No teacher assigned</SelectItem>
+                        {teachers.map((teacher) => (
+                          <SelectItem key={teacher.id} value={teacher.id}>{teacher.full_name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="section">Section</Label>
+                    <Label htmlFor="academic_year">Academic Year</Label>
                     <Input
-                      id="section"
-                      value={form.section}
-                      onChange={(e) => setForm({ ...form, section: e.target.value.toUpperCase() })}
-                      placeholder="A"
-                      maxLength={2}
-                      data-testid="class-section-input"
+                      id="academic_year"
+                      value={form.academic_year}
+                      onChange={(e) => setForm({ ...form, academic_year: e.target.value })}
+                      placeholder="2025/2026"
+                      data-testid="class-year-input"
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Class Teacher</Label>
-                  <Select
-                    value={form.teacher_id || '_none'}
-                    onValueChange={(value) => setForm({ ...form, teacher_id: value === '_none' ? '' : value })}
-                  >
-                    <SelectTrigger data-testid="class-teacher-select">
-                      <SelectValue placeholder="Select teacher" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none">No teacher assigned</SelectItem>
-                      {teachers.map((teacher) => (
-                        <SelectItem key={teacher.id} value={teacher.id}>{teacher.full_name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="academic_year">Academic Year</Label>
-                  <Input
-                    id="academic_year"
-                    value={form.academic_year}
-                    onChange={(e) => setForm({ ...form, academic_year: e.target.value })}
-                    placeholder="2025/2026"
-                    data-testid="class-year-input"
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={saving} data-testid="save-class-btn">
-                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  {editingClass ? 'Update Class' : 'Create Class'}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <Button type="submit" className="w-full" disabled={saving} data-testid="save-class-btn">
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    {editingClass ? 'Update Class' : 'Create Class'}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Classes Grid */}

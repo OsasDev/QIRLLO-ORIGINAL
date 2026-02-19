@@ -41,7 +41,6 @@ export const UserManagement = () => {
   const [form, setForm] = useState({
     full_name: '',
     email: '',
-    password: '',
     role: 'teacher',
     phone: '',
   });
@@ -66,13 +65,13 @@ export const UserManagement = () => {
     setSaving(true);
 
     try {
-      await api.post('/auth/register', form);
-      toast.success(`${form.role} account created successfully`);
+      await usersApi.invite(form);
+      toast.success(`Invitation sent to ${form.email}`);
       setDialogOpen(false);
       resetForm();
       loadUsers();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create user');
+      toast.error(error.response?.data?.detail || 'Failed to invite user');
     } finally {
       setSaving(false);
     }
@@ -94,7 +93,6 @@ export const UserManagement = () => {
     setForm({
       full_name: '',
       email: '',
-      password: '',
       role: 'teacher',
       phone: '',
     });
@@ -134,7 +132,7 @@ export const UserManagement = () => {
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
+                <DialogTitle>Invite User</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -158,18 +156,6 @@ export const UserManagement = () => {
                     required
                     placeholder="teacher@school.com"
                     data-testid="user-email-input"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    required
-                    placeholder="••••••••"
-                    data-testid="user-password-input"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -196,9 +182,10 @@ export const UserManagement = () => {
                     />
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground">A temporary password will be generated and emailed to the user.</p>
                 <Button type="submit" className="w-full" disabled={saving} data-testid="save-user-btn">
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                  Create User
+                  Invite User
                 </Button>
               </form>
             </DialogContent>

@@ -196,56 +196,56 @@ export const Students = () => {
                       id="admission_number"
                       value={form.admission_number}
                       onChange={(e) => setForm({ ...form, admission_number: e.target.value })}
-                    required
-                    placeholder="QRL/2025/0001"
-                    data-testid="student-admission-input"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                      required
+                      placeholder="QRL/2025/0001"
+                      data-testid="student-admission-input"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Class</Label>
+                      <Select value={form.class_id} onValueChange={(value) => setForm({ ...form, class_id: value })}>
+                        <SelectTrigger data-testid="student-class-select">
+                          <SelectValue placeholder="Select class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {classes.map((cls) => (
+                            <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Gender</Label>
+                      <Select value={form.gender} onValueChange={(value) => setForm({ ...form, gender: value })}>
+                        <SelectTrigger data-testid="student-gender-select">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                   <div className="space-y-2">
-                    <Label>Class</Label>
-                    <Select value={form.class_id} onValueChange={(value) => setForm({ ...form, class_id: value })}>
-                      <SelectTrigger data-testid="student-class-select">
-                        <SelectValue placeholder="Select class" />
+                    <Label>Parent/Guardian</Label>
+                    <Select value={form.parent_id} onValueChange={(value) => setForm({ ...form, parent_id: value })}>
+                      <SelectTrigger data-testid="student-parent-select">
+                        <SelectValue placeholder="Select parent" />
                       </SelectTrigger>
                       <SelectContent>
-                        {classes.map((cls) => (
-                          <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                        {parents.map((parent) => (
+                          <SelectItem key={parent.id} value={parent.id}>{parent.full_name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Gender</Label>
-                    <Select value={form.gender} onValueChange={(value) => setForm({ ...form, gender: value })}>
-                      <SelectTrigger data-testid="student-gender-select">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Parent/Guardian</Label>
-                  <Select value={form.parent_id} onValueChange={(value) => setForm({ ...form, parent_id: value })}>
-                    <SelectTrigger data-testid="student-parent-select">
-                      <SelectValue placeholder="Select parent" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {parents.map((parent) => (
-                        <SelectItem key={parent.id} value={parent.id}>{parent.full_name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button type="submit" className="w-full" disabled={saving} data-testid="save-student-btn">
-                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  {editingStudent ? 'Update Student' : 'Add Student'}
-                </Button>
-              </form>
+                  <Button type="submit" className="w-full" disabled={saving} data-testid="save-student-btn">
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    {editingStudent ? 'Update Student' : 'Add Student'}
+                  </Button>
+                </form>
               </DialogContent>
             </Dialog>
           </div>
@@ -294,13 +294,16 @@ export const Students = () => {
                     <TableHead>Admission No.</TableHead>
                     <TableHead>Class</TableHead>
                     <TableHead>Gender</TableHead>
+                    <TableHead>Parent Name</TableHead>
+                    <TableHead>Parent Email</TableHead>
+                    <TableHead>Parent Phone</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredStudents.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         No students found
                       </TableCell>
                     </TableRow>
@@ -311,6 +314,9 @@ export const Students = () => {
                         <TableCell className="font-mono text-sm">{student.admission_number}</TableCell>
                         <TableCell>{student.class_name}</TableCell>
                         <TableCell className="capitalize">{student.gender}</TableCell>
+                        <TableCell>{student.parent_name || <span className="text-muted-foreground">—</span>}</TableCell>
+                        <TableCell className="text-sm">{student.parent_email || <span className="text-muted-foreground">—</span>}</TableCell>
+                        <TableCell className="text-sm">{student.parent_phone || <span className="text-muted-foreground">—</span>}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(student)} data-testid={`edit-student-${student.id}`}>
                             <Pencil className="w-4 h-4" />
@@ -351,6 +357,13 @@ export const Students = () => {
                       <span className="bg-muted px-2 py-1 rounded">{student.class_name}</span>
                       <span className="capitalize text-muted-foreground">{student.gender}</span>
                     </div>
+                    {student.parent_name && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        <p>Parent: {student.parent_name}</p>
+                        {student.parent_email && <p>Email: {student.parent_email}</p>}
+                        {student.parent_phone && <p>Phone: {student.parent_phone}</p>}
+                      </div>
+                    )}
                   </div>
                 ))
               )}

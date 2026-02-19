@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem('qirllo_token');
     const savedUser = localStorage.getItem('qirllo_user');
-    
+
     if (token && savedUser) {
       try {
         setUser(JSON.parse(savedUser));
@@ -24,23 +24,26 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await authApi.login(email, password);
-    const { access_token, user: userData } = response.data;
-    
+    const { access_token, user: userData, must_change_password } = response.data;
+
+    // Attach must_change_password flag to user data
+    const userWithFlags = { ...userData, must_change_password: must_change_password === true };
+
     localStorage.setItem('qirllo_token', access_token);
-    localStorage.setItem('qirllo_user', JSON.stringify(userData));
-    setUser(userData);
-    
-    return userData;
+    localStorage.setItem('qirllo_user', JSON.stringify(userWithFlags));
+    setUser(userWithFlags);
+
+    return userWithFlags;
   };
 
   const register = async (data) => {
     const response = await authApi.register(data);
     const { access_token, user: userData } = response.data;
-    
+
     localStorage.setItem('qirllo_token', access_token);
     localStorage.setItem('qirllo_user', JSON.stringify(userData));
     setUser(userData);
-    
+
     return userData;
   };
 

@@ -21,8 +21,13 @@ export const Login = () => {
 
     try {
       const user = await login(email, password);
-      toast.success(`Welcome back, ${user.full_name}!`);
-      navigate(`/${user.role}`);
+      if (user.must_change_password) {
+        toast.info('Please change your temporary password to continue.');
+        navigate('/change-password');
+      } else {
+        toast.success(`Welcome back, ${user.full_name}!`);
+        navigate(`/${user.role}`);
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Invalid email or password');
     } finally {

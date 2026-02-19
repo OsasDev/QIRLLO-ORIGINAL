@@ -33,3 +33,4 @@ export function generateDummyPassword(length: number = 8): string {
     }
     return password;
 }
+export * from './email';

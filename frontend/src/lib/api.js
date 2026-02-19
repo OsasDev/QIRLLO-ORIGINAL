@@ -38,6 +38,7 @@ export const authApi = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   register: (data) => api.post('/auth/register', data),
   getMe: () => api.get('/auth/me'),
+  changePassword: (current_password, new_password) => api.put('/auth/change-password', { current_password, new_password }),
 };
 
 // Users API
@@ -45,6 +46,7 @@ export const usersApi = {
   getAll: (role) => api.get('/users', { params: { role } }),
   getTeachers: () => api.get('/teachers'),
   getParents: () => api.get('/parents'),
+  invite: (data) => api.post('/users/invite', data),
 };
 
 // Students API

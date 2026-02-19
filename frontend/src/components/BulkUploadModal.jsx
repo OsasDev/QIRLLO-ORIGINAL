@@ -14,10 +14,12 @@ export const BulkUploadModal = ({ type = 'students', onSuccess }) => {
   const configs = {
     students: {
       title: 'Upload Students',
-      description: 'Import multiple students from a CSV file',
-      endpoint: '/students/upload-csv',
-      templateEndpoint: '/students/csv-template',
-      templateName: 'student_upload_template.csv',
+      description: 'Import students, parent accounts, and fee structures from an Excel workbook',
+      endpoint: '/students/upload-xlsx',
+      templateEndpoint: '/students/xlsx-template',
+      templateName: 'students_fees_template.xlsx',
+      accept: '.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     },
     parents: {
       title: 'Upload Parents',
@@ -32,6 +34,17 @@ export const BulkUploadModal = ({ type = 'students', onSuccess }) => {
       endpoint: '/fees/upload-payments-csv',
       templateEndpoint: '/fees/payments-csv-template',
       templateName: 'payments_upload_template.csv',
+      accept: '.csv',
+      mimeType: 'text/csv',
+    },
+    classes_fees: {
+      title: 'Upload Classes & Fees',
+      description: 'Import classes and fee structures from an Excel workbook',
+      endpoint: '/classes/upload-xlsx',
+      templateEndpoint: '/classes/xlsx-template',
+      templateName: 'classes_fees_template.xlsx',
+      accept: '.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     },
   };
 
@@ -40,8 +53,9 @@ export const BulkUploadModal = ({ type = 'students', onSuccess }) => {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      if (!selectedFile.name.endsWith('.csv')) {
-        toast.error('Please select a CSV file');
+      const allowedExt = config.accept || '.csv';
+      if (!selectedFile.name.endsWith(allowedExt)) {
+        toast.error(`Please select a ${allowedExt} file`);
         return;
       }
       setFile(selectedFile);
@@ -63,8 +77,11 @@ export const BulkUploadModal = ({ type = 'students', onSuccess }) => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setResult(res.data);
-      if (res.data.created > 0) {
-        toast.success(`Successfully imported ${res.data.created} records`);
+
+      const createdCount = (res.data.created || 0) + (res.data.classes_created || 0) + (res.data.fees_created || 0) + (res.data.students_created || 0) + (res.data.parents_created || 0) + (res.data.fees_processed || 0);
+
+      if (createdCount > 0 || res.data.message) {
+        toast.success(res.data.message || 'Successfully processed upload');
         if (onSuccess) onSuccess();
       }
       if (res.data.errors?.length > 0) {
@@ -79,8 +96,9 @@ export const BulkUploadModal = ({ type = 'students', onSuccess }) => {
 
   const handleDownloadTemplate = async () => {
     try {
-      const res = await api.get(config.templateEndpoint);
-      const blob = new Blob([res.data.template], { type: 'text/csv' });
+      const res = await api.get(config.templateEndpoint, { responseType: 'blob' }); // Important for binary files
+      const mimeType = config.mimeType || 'text/csv';
+      const blob = new Blob([res.data], { type: mimeType });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -90,6 +108,7 @@ export const BulkUploadModal = ({ type = 'students', onSuccess }) => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (error) {
+      console.error(error);
       toast.error('Failed to download template');
     }
   };
@@ -98,7 +117,7 @@ export const BulkUploadModal = ({ type = 'students', onSuccess }) => {
     <div className="space-y-4" data-testid={`bulk-upload-${type}`}>
       <Button variant="outline" onClick={handleDownloadTemplate} className="w-full" data-testid="download-template-btn">
         <Download className="w-4 h-4 mr-2" />
-        Download CSV Template
+        {config.accept === '.xlsx' ? 'Download Excel Template' : 'Download CSV Template'}
       </Button>
 
       <div
@@ -109,7 +128,7 @@ export const BulkUploadModal = ({ type = 'students', onSuccess }) => {
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept=".csv"
+          accept={config.accept || '.csv'}
           className="hidden"
           data-testid="file-input"
         />
@@ -123,7 +142,7 @@ export const BulkUploadModal = ({ type = 'students', onSuccess }) => {
           </div>
         ) : (
           <div>
-            <p className="font-medium text-foreground">Click to select CSV file</p>
+            <p className="font-medium text-foreground">Click to select {config.accept === '.xlsx' ? 'Excel' : 'CSV'} file</p>
             <p className="text-sm text-muted-foreground mt-1">or drag and drop</p>
           </div>
         )}
@@ -149,29 +168,40 @@ export const BulkUploadModal = ({ type = 'students', onSuccess }) => {
       </Button>
 
       {/* Results */}
-      {result && (
-        <div className="mt-4 p-4 border rounded-lg">
-          <div className="flex items-center gap-2 mb-2">
-            {result.created > 0 ? (
-              <CheckCircle className="w-5 h-5 text-green-600" />
-            ) : (
-              <XCircle className="w-5 h-5 text-red-600" />
-            )}
-            <span className="font-medium">Upload Results</span>
-          </div>
-          <div className="flex gap-6 text-sm">
-            <span className="text-green-600">{result.created} created</span>
-            <span className="text-red-600">{result.errors?.length || 0} errors</span>
-          </div>
-          {result.errors && result.errors.length > 0 && (
-            <div className="mt-3 max-h-32 overflow-y-auto text-xs text-red-600 bg-red-50 p-2 rounded">
-              {result.errors.map((error, idx) => (
-                <p key={idx}>{error}</p>
-              ))}
+      {result && (() => {
+        const totalCreated = (result.created || 0) + (result.students_created || 0) + (result.classes_created || 0) + (result.fees_created || 0) + (result.parents_created || 0) + (result.fees_processed || 0);
+        return (
+          <div className="mt-4 p-4 border rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              {totalCreated > 0 ? (
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              ) : (
+                <XCircle className="w-5 h-5 text-red-600" />
+              )}
+              <span className="font-medium">Upload Results</span>
             </div>
-          )}
-        </div>
-      )}
+            {result.message && (
+              <p className="text-sm text-muted-foreground mb-2">{result.message}</p>
+            )}
+            <div className="flex flex-wrap gap-4 text-sm">
+              {result.students_created > 0 && <span className="text-green-600">{result.students_created} students</span>}
+              {result.parents_created > 0 && <span className="text-blue-600">{result.parents_created} parents</span>}
+              {result.fees_processed > 0 && <span className="text-purple-600">{result.fees_processed} fee structures</span>}
+              {result.classes_created > 0 && <span className="text-green-600">{result.classes_created} classes</span>}
+              {result.fees_created > 0 && <span className="text-green-600">{result.fees_created} fees</span>}
+              {result.created > 0 && <span className="text-green-600">{result.created} created</span>}
+              <span className="text-red-600">{result.errors?.length || 0} errors</span>
+            </div>
+            {result.errors && result.errors.length > 0 && (
+              <div className="mt-3 max-h-32 overflow-y-auto text-xs text-red-600 bg-red-50 p-2 rounded">
+                {result.errors.map((error, idx) => (
+                  <p key={idx}>{error}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 };

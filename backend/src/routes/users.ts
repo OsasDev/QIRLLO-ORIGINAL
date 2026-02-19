@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getDB } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { hashPassword, nowISO } from '../helpers';
+import { hashPassword, nowISO, generateDummyPassword, sendInvitationEmail } from '../helpers';
 import { AuthRequest } from '../types';
 import multer from 'multer';
 import csv from 'csv-parser';
@@ -10,6 +10,67 @@ import { Readable } from 'stream';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
+
+// POST /api/users/invite
+router.post('/invite', authMiddleware, async (req: Request, res: Response) => {
+    try {
+        const currentUser = (req as AuthRequest).user!;
+        if (currentUser.role !== 'admin') {
+            res.status(403).json({ detail: 'Admin access required' });
+            return;
+        }
+
+        const { full_name, email, role, phone } = req.body;
+        if (!full_name || !email || !role) {
+            res.status(400).json({ detail: 'Missing required fields' });
+            return;
+        }
+
+        const db = getDB();
+        const existing = await db.collection('users').findOne({ email });
+        if (existing) {
+            res.status(400).json({ detail: 'User with this email already exists' });
+            return;
+        }
+
+        const password = generateDummyPassword();
+        const userId = uuidv4();
+        const userDoc = {
+            id: userId,
+            email,
+            password_hash: hashPassword(password),
+            full_name,
+            role,
+            phone: phone || null,
+            must_change_password: true,
+            created_at: nowISO(),
+        };
+
+        await db.collection('users').insertOne(userDoc);
+
+        // Send invitation email
+        const sent = await sendInvitationEmail(email, full_name, role, password);
+
+        if (!sent) {
+            // If email fails, we should probably warn the admin, but the user is created.
+            // A real system might queue the email or rollback.
+            res.status(201).json({
+                ...userDoc,
+                password_hash: undefined,
+                warning: 'User created but failed to send email. Password is: ' + password
+            });
+            return;
+        }
+
+        res.status(201).json({
+            ...userDoc,
+            password_hash: undefined,
+            message: 'User invited successfully'
+        });
+    } catch (err: any) {
+        res.status(500).json({ detail: err.message });
+    }
+});
 
 // GET /api/users
 router.get('/', authMiddleware, async (req: Request, res: Response) => {
@@ -143,7 +204,7 @@ router.post('/upload-parents-csv', authMiddleware, upload.single('file'), async 
                 const full_name = (row.full_name || '').trim();
                 const email = (row.email || '').trim();
                 const phone = (row.phone || '').trim();
-                const password = (row.password || 'parent123').trim();
+                const password = (row.password || generateDummyPassword()).trim();
 
                 if (!full_name || !email) {
                     errors.push(`Row ${rowNum}: Missing required fields (full_name or email)`);
@@ -164,9 +225,13 @@ router.post('/upload-parents-csv', authMiddleware, upload.single('file'), async 
                     full_name,
                     role: 'parent',
                     phone: phone || null,
+                    must_change_password: true,
                     created_at: nowISO(),
                 };
                 await db.collection('users').insertOne(userDoc);
+
+                // Send invitation email
+                await sendInvitationEmail(email, full_name, 'Parent', password);
 
                 const studentAdmissions = (row.student_admission_numbers || '').trim();
                 if (studentAdmissions) {

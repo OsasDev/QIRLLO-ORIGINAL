@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '../../components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { gradesApi, studentsApi } from '../../lib/api';
+import { gradesApi, studentsApi, schoolApi } from '../../lib/api';
 import { toast } from 'sonner';
 import { Printer, Download } from 'lucide-react';
 
@@ -21,9 +21,11 @@ export const ParentResults = () => {
   const [loading, setLoading] = useState(true);
   const [selectedChild, setSelectedChild] = useState(searchParams.get('student') || '');
   const [selectedTerm, setSelectedTerm] = useState('first');
+  const [schoolSettings, setSchoolSettings] = useState({ school_name: 'Loading...', school_logo: null, motto: '' });
 
   useEffect(() => {
     loadChildren();
+    loadSchoolSettings();
   }, []);
 
   useEffect(() => {
@@ -43,6 +45,15 @@ export const ParentResults = () => {
       toast.error('Failed to load children');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSchoolSettings = async () => {
+    try {
+      const res = await schoolApi.getSettings();
+      setSchoolSettings(res.data);
+    } catch (error) {
+      // silently fail, keep defaults
     }
   };
 
@@ -67,7 +78,7 @@ export const ParentResults = () => {
   };
 
   const selectedChildData = children.find(c => c.id === selectedChild);
-  
+
   const totalScore = grades.reduce((sum, g) => sum + g.total_score, 0);
   const averageScore = grades.length > 0 ? (totalScore / grades.length).toFixed(1) : 0;
   const passedSubjects = grades.filter(g => g.total_score >= 40).length;
@@ -131,11 +142,20 @@ export const ParentResults = () => {
             <div className="result-paper p-6 md:p-8 mb-6">
               {/* School Header */}
               <div className="text-center mb-6 pb-6 border-b">
-                <div className="w-16 h-16 rounded-xl bg-primary mx-auto flex items-center justify-center mb-4">
-                  <span className="text-white font-bold text-3xl">O</span>
+                <div className="w-16 h-16 rounded-xl bg-primary mx-auto flex items-center justify-center mb-4 overflow-hidden">
+                  {schoolSettings.school_logo ? (
+                    <img src={schoolSettings.school_logo} alt={schoolSettings.school_name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-white font-bold text-3xl">
+                      {(schoolSettings.school_name || 'Q').charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </div>
-                <h2 className="text-2xl font-bold">OGUNWOLE PRIVATE SCHOOL</h2>
+                <h2 className="text-2xl font-bold">{(schoolSettings.school_name || 'QIRLLO School').toUpperCase()}</h2>
                 <p className="text-muted-foreground">Academic Report Card</p>
+                {schoolSettings.motto && (
+                  <p className="text-xs text-muted-foreground italic mt-1">{schoolSettings.motto}</p>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">Powered by QIRLLO</p>
               </div>
 
@@ -204,10 +224,10 @@ export const ParentResults = () => {
                             {grade.grade}
                           </td>
                           <td className="py-3 px-2 text-sm text-muted-foreground">
-                            {grade.comment || (grade.total_score >= 70 ? 'Excellent' : 
-                              grade.total_score >= 60 ? 'Very Good' : 
-                              grade.total_score >= 50 ? 'Good' : 
-                              grade.total_score >= 40 ? 'Fair' : 'Needs Improvement')}
+                            {grade.comment || (grade.total_score >= 70 ? 'Excellent' :
+                              grade.total_score >= 60 ? 'Very Good' :
+                                grade.total_score >= 50 ? 'Good' :
+                                  grade.total_score >= 40 ? 'Fair' : 'Needs Improvement')}
                           </td>
                         </tr>
                       ))}
