@@ -20,7 +20,7 @@ services:
         value: https://qirllo-frontend.onrender.com # Update this later if needed
 
   # Frontend Static Site
-  - type: static
+  - type: static_site
     name: qirllo-frontend
     env: static
     rootDir: frontend
