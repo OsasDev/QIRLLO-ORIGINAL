@@ -18,6 +18,8 @@ services:
         value: 10000
       - key: FRONTEND_URL
         value: https://qirllo-frontend.onrender.com # Update this later if needed
+      - key: NODE_TLS_REJECT_UNAUTHORIZED
+        value: '0'
 
   # Frontend Static Site
   - type: web
