@@ -1,0 +1,32 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: qirllo-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: MONGO_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: PORT
+        value: 10000
+      - key: FRONTEND_URL
+        value: https://qirllo-frontend.onrender.com # Update this later if needed
+
+  # Frontend Static Site
+  - type: web
+    name: qirllo-frontend
+    env: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_BACKEND_URL
+        value: https://qirllo-backend.onrender.com

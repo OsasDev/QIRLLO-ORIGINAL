@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { schoolApi } from '../lib/api';
+import { useEffect } from 'react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -15,12 +17,28 @@ export const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  // Check onboarding status
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const res = await schoolApi.getOnboardingStatus();
+        if (!res.data.is_onboarded) {
+          navigate('/onboarding');
+        }
+      } catch (error) {
+        console.error('Failed to check onboarding status:', error);
+      }
+    };
+    checkOnboarding();
+  }, [navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       const user = await login(email, password);
+      // ...rest of handleSubmit
       if (user.must_change_password) {
         toast.info('Please change your temporary password to continue.');
         navigate('/change-password');
