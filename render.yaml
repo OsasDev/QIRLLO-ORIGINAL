@@ -20,9 +20,9 @@ services:
         value: https://qirllo-frontend.onrender.com # Update this later if needed
 
   # Frontend Static Site
-  - type: static_site
+  - type: web
+    runtime: static
     name: qirllo-frontend
-    env: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: build
