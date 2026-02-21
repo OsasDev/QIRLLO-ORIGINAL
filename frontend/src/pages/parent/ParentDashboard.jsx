@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../lib/auth';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { StatCard } from '../../components/ui/stat-card';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -17,6 +18,7 @@ import {
 import { format } from 'date-fns';
 
 export const ParentDashboard = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [recentResults, setRecentResults] = useState([]);
@@ -65,8 +67,10 @@ export const ParentDashboard = () => {
       <div className="p-4 md:p-8 lg:p-12" data-testid="parent-dashboard">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Parent Dashboard</h1>
-          <p className="text-muted-foreground">Welcome! Stay updated with your children's progress.</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back to <strong>{user?.school_name || 'your school'}</strong>! Stay updated with progress.
+          </p>
         </div>
 
         {/* Children Pills */}
@@ -75,8 +79,8 @@ export const ParentDashboard = () => {
             <h3 className="text-sm font-medium text-muted-foreground mb-3">Your Children</h3>
             <div className="flex flex-wrap gap-2">
               {stats.children.map((child) => (
-                <Link 
-                  key={child.id} 
+                <Link
+                  key={child.id}
                   to={`/parent/results?student=${child.id}`}
                   className="child-pill"
                 >
@@ -147,12 +151,11 @@ export const ParentDashboard = () => {
                       </div>
                       <div className="text-right">
                         <p className="font-bold font-mono">{result.total_score}/100</p>
-                        <p className={`text-xs font-bold ${
-                          result.grade === 'A' ? 'text-green-600' :
+                        <p className={`text-xs font-bold ${result.grade === 'A' ? 'text-green-600' :
                           result.grade === 'B' ? 'text-blue-600' :
-                          result.grade === 'C' ? 'text-yellow-600' :
-                          'text-red-600'
-                        }`}>
+                            result.grade === 'C' ? 'text-yellow-600' :
+                              'text-red-600'
+                          }`}>
                           Grade {result.grade}
                         </p>
                       </div>

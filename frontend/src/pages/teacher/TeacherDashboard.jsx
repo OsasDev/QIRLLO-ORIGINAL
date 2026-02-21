@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../lib/auth';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { StatCard } from '../../components/ui/stat-card';
 import { Button } from '../../components/ui/button';
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 
 export const TeacherDashboard = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -64,8 +66,10 @@ export const TeacherDashboard = () => {
       <div className="p-4 md:p-8 lg:p-12" data-testid="teacher-dashboard">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Teacher Dashboard</h1>
-          <p className="text-muted-foreground">Welcome! Here's your teaching overview.</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back to <strong>{user?.school_name || 'your school'}</strong>! Here's your overview.
+          </p>
         </div>
 
         {/* Stats Grid */}
@@ -176,8 +180,8 @@ export const TeacherDashboard = () => {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {subjects.map((subject) => (
-                  <Link 
-                    key={subject.id} 
+                  <Link
+                    key={subject.id}
                     to={`/teacher/grades?subject=${subject.id}`}
                     className="p-4 border rounded-lg hover:border-primary transition-colors"
                   >
