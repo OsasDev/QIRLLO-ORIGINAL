@@ -18,6 +18,27 @@ if (isMock) {
     console.log(`📧 Email Service: LIVE MODE active (Using ${SMTP_HOST}:${SMTP_PORT})`);
 }
 
+const transportOptions: any = {
+    auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASS,
+    },
+    connectionTimeout: 30000, // 30s for cloud environments
+    greetingTimeout: 30000,
+    socketTimeout: 60000,
+    pool: true,
+    maxConnections: 5,
+};
+
+// Use Gmail service optimization if applicable
+if (SMTP_HOST.includes('gmail.com') || SMTP_USER.endsWith('@gmail.com')) {
+    transportOptions.service = 'gmail';
+} else {
+    transportOptions.host = SMTP_HOST;
+    transportOptions.port = SMTP_PORT;
+    transportOptions.secure = SMTP_PORT === 465;
+}
+
 const transporter = isMock
     ? {
         sendMail: async (mailOptions: any) => {
@@ -30,29 +51,16 @@ const transporter = isMock
             return { messageId: 'mock-123' };
         }
     }
-    : nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: SMTP_PORT,
-        secure: SMTP_PORT === 465,
-        auth: {
-            user: SMTP_USER,
-            pass: SMTP_PASS,
-        },
-        connectionTimeout: 10000, // 10s
-        greetingTimeout: 10000,
-        socketTimeout: 20000,
-        pool: true,
-        maxConnections: 5,
-        maxMessages: 100,
-    });
+    : nodemailer.createTransport(transportOptions);
 
 // Verify connection configuration on startup if not in mock mode
 if (!isMock && (transporter as any).verify) {
-    console.log('⏳ Verifying SMTP connection...');
+    console.log(`⏳ Verifying SMTP connection (${transportOptions.service || SMTP_HOST})...`);
     (transporter as any).verify((error: any, success: any) => {
         if (error) {
             console.error('❌ SMTP Connection Error:', error);
             console.error('Diagnostic Info:', {
+                service: transportOptions.service,
                 host: SMTP_HOST,
                 port: SMTP_PORT,
                 user: SMTP_USER,
