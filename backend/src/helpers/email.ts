@@ -38,13 +38,27 @@ const transporter = isMock
             user: SMTP_USER,
             pass: SMTP_PASS,
         },
+        connectionTimeout: 10000, // 10s
+        greetingTimeout: 10000,
+        socketTimeout: 20000,
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
     });
 
 // Verify connection configuration on startup if not in mock mode
 if (!isMock && (transporter as any).verify) {
+    console.log('⏳ Verifying SMTP connection...');
     (transporter as any).verify((error: any, success: any) => {
         if (error) {
             console.error('❌ SMTP Connection Error:', error);
+            console.error('Diagnostic Info:', {
+                host: SMTP_HOST,
+                port: SMTP_PORT,
+                user: SMTP_USER,
+                code: error.code,
+                command: error.command
+            });
         } else {
             console.log('✅ SMTP Server is ready to take messages');
         }
@@ -57,7 +71,8 @@ async function getSchoolName(): Promise<string> {
         const db = getDB();
         const settings = await db.collection('school_settings').findOne({});
         return settings?.school_name || 'QIRLLO School';
-    } catch {
+    } catch (err) {
+        console.warn('⚠️ Could not fetch school name during email prep:', err);
         return 'QIRLLO School';
     }
 }
@@ -106,7 +121,7 @@ School Administration
     `;
 
     try {
-        console.log(`📧 Attempting to send invite email to: ${email}...`);
+        console.log(`📧 Attempting to send invite email to: ${email} (via ${FROM_EMAIL})...`);
         const info = await (transporter as any).sendMail({
             from: `"${schoolName}" <${FROM_EMAIL}>`,
             to: email,
@@ -116,8 +131,9 @@ School Administration
         });
         console.log(`✅ Email sent successfully! MessageId: ${info.messageId}`);
         return true;
-    } catch (error) {
-        console.error(`❌ CRITICAL: Failed to send email to ${email}:`, error);
+    } catch (error: any) {
+        console.error(`❌ CRITICAL: Failed to send email to ${email}:`);
+        console.error(error);
         return false;
     }
 }

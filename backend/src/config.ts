@@ -16,8 +16,9 @@ export const SMTP_HOST = process.env.SMTP_HOST || '';
 export const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
 export const SMTP_USER = process.env.SMTP_USER || '';
 export const SMTP_PASS = process.env.SMTP_PASS || '';
-export const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@qirllo.com';
-export const FRONTEND_URL = process.env.FRONTEND_URL || 'https://qirllo-frontend.onrender.com'; // Default to production
+// Fallback FROM_EMAIL to SMTP_USER if not set (critical for Gmail)
+export const FROM_EMAIL = process.env.FROM_EMAIL || SMTP_USER || 'noreply@qirllo.com';
+export const FRONTEND_URL = process.env.FRONTEND_URL || 'https://qirllo-frontend.onrender.com';
 
 // Diagnostic Logging
 console.log('--- Environment Configuration ---');

@@ -1,4 +1,4 @@
-import { getDB } from '../db';
+import { getDB, connectDB, closeDB } from '../db';
 
 export async function clearExistingData() {
     const db = getDB();
@@ -26,4 +26,19 @@ export async function clearExistingData() {
         }
     }
     console.log('✨ Database is now fresh.');
+}
+
+// Run if called directly
+if (require.main === module) {
+    (async () => {
+        try {
+            await connectDB();
+            await clearExistingData();
+            await closeDB();
+            process.exit(0);
+        } catch (err) {
+            console.error('Fatal error during cleanup:', err);
+            process.exit(1);
+        }
+    })();
 }
