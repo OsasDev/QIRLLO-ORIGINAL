@@ -11,6 +11,7 @@ const router = Router();
 router.post('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -22,6 +23,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 
         const announcementDoc = {
             id: announcementId,
+            school_id, // Link to school
             title: data.title,
             content: data.content,
             target_audience: data.target_audience,
@@ -41,12 +43,16 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 router.get('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         const db = getDB();
 
         const roleMap: Record<string, string> = { admin: 'all', teacher: 'teachers', parent: 'parents' };
         const userAudience = roleMap[currentUser.role] || 'all';
 
-        const query = { $or: [{ target_audience: 'all' }, { target_audience: userAudience }] };
+        const query = {
+            school_id,
+            $or: [{ target_audience: 'all' }, { target_audience: userAudience }]
+        };
         const announcements = await db.collection('announcements')
             .find(query, { projection: { _id: 0 } })
             .sort({ created_at: -1 })
@@ -63,15 +69,16 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 router.delete('/:announcementId', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
         }
 
         const db = getDB();
-        const result = await db.collection('announcements').deleteOne({ id: req.params.announcementId });
+        const result = await db.collection('announcements').deleteOne({ id: req.params.announcementId, school_id });
         if (result.deletedCount === 0) {
-            res.status(404).json({ detail: 'Announcement not found' });
+            res.status(404).json({ detail: 'Announcement not found or access denied' });
             return;
         }
         res.json({ message: 'Announcement deleted' });

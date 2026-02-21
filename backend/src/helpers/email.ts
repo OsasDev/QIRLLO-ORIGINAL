@@ -1,15 +1,22 @@
 import nodemailer from 'nodemailer';
 import { getDB } from '../db';
-
-// SMTP config from .env — when SMTP_HOST is not set, emails are logged to console (mock mode)
-const SMTP_HOST = process.env.SMTP_HOST || 'smtp.example.com';
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
-const SMTP_USER = process.env.SMTP_USER || 'user';
-const SMTP_PASS = process.env.SMTP_PASS || 'pass';
-const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@school.com';
+import {
+    SMTP_HOST,
+    SMTP_PORT,
+    SMTP_USER,
+    SMTP_PASS,
+    FROM_EMAIL,
+    FRONTEND_URL
+} from '../config';
 
 // For development/demo, we'll just log to console if no real credentials
-const isMock = !process.env.SMTP_HOST;
+const isMock = !SMTP_HOST || SMTP_HOST === 'smtp.example.com';
+
+if (isMock) {
+    console.log('📧 Email Service: MOCK MODE active (missing/default SMTP_HOST)');
+} else {
+    console.log(`📧 Email Service: LIVE MODE active (Using ${SMTP_HOST}:${SMTP_PORT})`);
+}
 
 const transporter = isMock
     ? {
@@ -33,6 +40,17 @@ const transporter = isMock
         },
     });
 
+// Verify connection configuration on startup if not in mock mode
+if (!isMock && (transporter as any).verify) {
+    (transporter as any).verify((error: any, success: any) => {
+        if (error) {
+            console.error('❌ SMTP Connection Error:', error);
+        } else {
+            console.log('✅ SMTP Server is ready to take messages');
+        }
+    });
+}
+
 // Helper to fetch the school name from DB
 async function getSchoolName(): Promise<string> {
     try {
@@ -46,7 +64,7 @@ async function getSchoolName(): Promise<string> {
 
 export async function sendInvitationEmail(email: string, name: string, role: string, password: string) {
     const schoolName = await getSchoolName();
-    const loginUrl = process.env.FRONTEND_URL || 'http://localhost:3000/login';
+    const loginUrl = `${FRONTEND_URL}/login`;
 
     const subject = `Welcome to ${schoolName} - Your Account Details`;
 
@@ -88,16 +106,18 @@ School Administration
     `;
 
     try {
-        await (transporter as any).sendMail({
+        console.log(`📧 Attempting to send invite email to: ${email}...`);
+        const info = await (transporter as any).sendMail({
             from: `"${schoolName}" <${FROM_EMAIL}>`,
             to: email,
             subject,
             text,
             html,
         });
+        console.log(`✅ Email sent successfully! MessageId: ${info.messageId}`);
         return true;
     } catch (error) {
-        console.error('Failed to send email:', error);
+        console.error(`❌ CRITICAL: Failed to send email to ${email}:`, error);
         return false;
     }
 }

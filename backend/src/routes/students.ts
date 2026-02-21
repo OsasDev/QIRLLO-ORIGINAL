@@ -16,6 +16,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.post('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -24,21 +25,20 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
         const data = req.body;
         const db = getDB();
 
-        const existing = await db.collection('students').findOne({ admission_number: data.admission_number });
+        const existing = await db.collection('students').findOne({ admission_number: data.admission_number, school_id });
         if (existing) {
-            res.status(400).json({ detail: 'Admission number already exists' });
+            res.status(400).json({ detail: 'Admission number already exists in this school' });
             return;
         }
 
         const studentId = uuidv4();
-        const classDoc = await db.collection('classes').findOne({ id: data.class_id }, { projection: { _id: 0 } });
+        const classDoc = await db.collection('classes').findOne({ id: data.class_id, school_id }, { projection: { _id: 0 } });
 
         // Resolve or auto-create parent
         let parentId = data.parent_id || null;
         let parentName = data.parent_name || null;
         let parentEmail = data.parent_email || null;
         let parentPhone = data.parent_phone || null;
-        let parentCredentials: any = null;
 
         if (parentEmail && !parentId) {
             const existingParent = await db.collection('users').findOne(
@@ -59,6 +59,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
                     password_hash: hashPassword(dummyPassword),
                     full_name: parentName,
                     role: 'parent',
+                    school_id: school_id, // Link to school
                     phone: parentPhone || null,
                     must_change_password: true,
                     created_at: nowISO(),
@@ -67,13 +68,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
                 parentId = newParentId;
 
                 // Send invitation email
-                await sendInvitationEmail(
-                    parentEmail,
-                    parentName,
-                    'Parent',
-                    dummyPassword
-                );
-                // We no longer return credentials in response as they are emailed
+                await sendInvitationEmail(parentEmail, parentName, 'Parent', dummyPassword);
             }
         }
 
@@ -83,6 +78,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
             admission_number: data.admission_number,
             class_id: data.class_id,
             class_name: classDoc ? classDoc.name : null,
+            school_id: school_id, // Link to school
             gender: data.gender,
             date_of_birth: data.date_of_birth || null,
             parent_id: parentId,
@@ -94,9 +90,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
         };
         await db.collection('students').insertOne(studentDoc);
 
-        const response: any = { ...studentDoc };
-        // if (parentCredentials) { response.parent_credentials = parentCredentials; } // Removed
-        res.json(response);
+        res.json(studentDoc);
     } catch (err: any) {
         res.status(500).json({ detail: err.message });
     }
@@ -106,9 +100,10 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 router.get('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         const db = getDB();
 
-        const query: any = {};
+        const query: any = { school_id }; // Enforce school filter
         if (req.query.class_id) query.class_id = req.query.class_id;
         if (req.query.parent_id) query.parent_id = req.query.parent_id;
         if (currentUser.role === 'parent') query.parent_id = currentUser.id;
@@ -121,19 +116,19 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
         for (const student of students) {
             // Get fee structure for the student's class level
             const classDoc = student.class_id
-                ? await db.collection('classes').findOne({ id: student.class_id }, { projection: { _id: 0 } })
+                ? await db.collection('classes').findOne({ id: student.class_id, school_id }, { projection: { _id: 0 } })
                 : null;
 
             let totalFees = 0;
             if (classDoc) {
                 const feeStructures = await db.collection('fee_structures')
-                    .find({ class_level: classDoc.level }, { projection: { _id: 0 } })
+                    .find({ class_level: classDoc.level, school_id }, { projection: { _id: 0 } })
                     .toArray();
                 totalFees = feeStructures.reduce((sum: number, f: any) => sum + (f.total || 0), 0);
             }
 
             const payments = await db.collection('fee_payments')
-                .find({ student_id: student.id }, { projection: { _id: 0 } })
+                .find({ student_id: student.id, school_id }, { projection: { _id: 0 } })
                 .toArray();
             const feesPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
 
@@ -141,10 +136,10 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
             student.fees_paid = feesPaid;
             student.fee_balance = totalFees - feesPaid;
 
-            // Resolve parent info if not stored on student doc
+            // Resolve parent info
             if (student.parent_id && !student.parent_name) {
                 const parent = await db.collection('users').findOne(
-                    { id: student.parent_id },
+                    { id: student.parent_id, school_id },
                     { projection: { _id: 0, password_hash: 0 } }
                 );
                 if (parent) {
@@ -222,19 +217,20 @@ router.get('/xlsx-template', async (_req: Request, res: Response) => {
 router.get('/:studentId', authMiddleware, async (req: Request, res: Response) => {
     try {
         const db = getDB();
+        const school_id = (req as AuthRequest).school_id;
         const student = await db.collection('students').findOne(
-            { id: req.params.studentId },
+            { id: req.params.studentId, school_id },
             { projection: { _id: 0 } }
         );
         if (!student) {
-            res.status(404).json({ detail: 'Student not found' });
+            res.status(404).json({ detail: 'Student not found or access denied' });
             return;
         }
 
         // Enrich with parent info
         if (student.parent_id && !student.parent_name) {
             const parent = await db.collection('users').findOne(
-                { id: student.parent_id },
+                { id: student.parent_id, school_id },
                 { projection: { _id: 0, password_hash: 0 } }
             );
             if (parent) {
@@ -254,6 +250,7 @@ router.get('/:studentId', authMiddleware, async (req: Request, res: Response) =>
 router.put('/:studentId', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -262,16 +259,21 @@ router.put('/:studentId', authMiddleware, async (req: Request, res: Response) =>
         const data = req.body;
         const db = getDB();
 
-        const classDoc = await db.collection('classes').findOne({ id: data.class_id }, { projection: { _id: 0 } });
+        const classDoc = await db.collection('classes').findOne({ id: data.class_id, school_id }, { projection: { _id: 0 } });
         const updateData = { ...data, class_name: classDoc ? classDoc.name : null };
 
-        await db.collection('students').updateOne(
-            { id: req.params.studentId },
+        const result = await db.collection('students').updateOne(
+            { id: req.params.studentId, school_id },
             { $set: updateData }
         );
 
+        if (result.matchedCount === 0) {
+            res.status(404).json({ detail: 'Student not found or access denied' });
+            return;
+        }
+
         const student = await db.collection('students').findOne(
-            { id: req.params.studentId },
+            { id: req.params.studentId, school_id },
             { projection: { _id: 0 } }
         );
         res.json(student);
@@ -284,15 +286,16 @@ router.put('/:studentId', authMiddleware, async (req: Request, res: Response) =>
 router.delete('/:studentId', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
         }
 
         const db = getDB();
-        const result = await db.collection('students').deleteOne({ id: req.params.studentId });
+        const result = await db.collection('students').deleteOne({ id: req.params.studentId, school_id });
         if (result.deletedCount === 0) {
-            res.status(404).json({ detail: 'Student not found' });
+            res.status(404).json({ detail: 'Student not found or access denied' });
             return;
         }
         res.json({ message: 'Student deleted successfully' });
@@ -305,6 +308,7 @@ router.delete('/:studentId', authMiddleware, async (req: Request, res: Response)
 router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -350,18 +354,18 @@ router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Re
                     continue;
                 }
 
-                const existingStudent = await db.collection('students').findOne({ admission_number });
+                const existingStudent = await db.collection('students').findOne({ admission_number, school_id });
                 if (existingStudent) {
                     errors.push(`Row ${rowNum}: Admission number ${admission_number} already exists`);
                     continue;
                 }
 
                 // Resolve class
-                let classDoc = await db.collection('classes').findOne({ name: className }, { projection: { _id: 0 } });
+                let classDoc = await db.collection('classes').findOne({ name: className, school_id }, { projection: { _id: 0 } });
                 if (!classDoc) {
                     const levelMatch = levels.find(l => className.toUpperCase().includes(l));
                     if (levelMatch) {
-                        classDoc = await db.collection('classes').findOne({ level: levelMatch }, { projection: { _id: 0 } });
+                        classDoc = await db.collection('classes').findOne({ level: levelMatch, school_id }, { projection: { _id: 0 } });
                     }
                 }
                 const classId = classDoc ? classDoc.id : null;
@@ -373,29 +377,13 @@ router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Re
 
                 if (parentEmail) {
                     const existingParent = await db.collection('users').findOne(
-                        { email: parentEmail, role: 'parent' },
+                        { email: parentEmail, role: 'parent', school_id },
                         { projection: { _id: 0 } }
                     );
                     if (existingParent) {
                         parentId = existingParent.id;
                         resolvedParentName = resolvedParentName || existingParent.full_name;
                         resolvedParentPhone = resolvedParentPhone || existingParent.phone;
-                        // Re-send invitation if parent hasn't logged in yet
-                        if (existingParent.must_change_password) {
-                            const newDummyPassword = generateDummyPassword();
-                            await db.collection('users').updateOne(
-                                { id: existingParent.id },
-                                { $set: { password_hash: hashPassword(newDummyPassword) } }
-                            );
-                            console.log(`📧 Re-sending invite to existing parent: ${parentEmail}`);
-                            try {
-                                await sendInvitationEmail(parentEmail, resolvedParentName || 'Parent', 'Parent', newDummyPassword);
-                                console.log(`✅ Invite email resent to ${parentEmail}`);
-                            } catch (emailErr) {
-                                console.error(`❌ Email failed for ${parentEmail}:`, emailErr);
-                                errors.push(`Row ${rowNum}: Parent linked but re-invitation email failed`);
-                            }
-                        }
                     } else if (parentName) {
                         // Auto-create parent account with dummy password
                         const dummyPassword = generateDummyPassword();
@@ -406,6 +394,7 @@ router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Re
                             password_hash: hashPassword(dummyPassword),
                             full_name: parentName,
                             role: 'parent',
+                            school_id: school_id,
                             phone: parentPhone || null,
                             must_change_password: true,
                             created_at: nowISO(),
@@ -418,15 +407,8 @@ router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Re
                             password: dummyPassword,
                             name: parentName,
                         });
-                        // Send invitation email to newly created parent
-                        console.log(`📧 Sending new invite to: ${parentEmail}`);
-                        try {
-                            await sendInvitationEmail(parentEmail, parentName, 'Parent', dummyPassword);
-                            console.log(`✅ Invite email sent to ${parentEmail}`);
-                        } catch (emailErr) {
-                            console.error(`❌ Email failed for ${parentEmail}:`, emailErr);
-                            errors.push(`Row ${rowNum}: Parent created but invitation email failed to send`);
-                        }
+                        // Send invitation email
+                        await sendInvitationEmail(parentEmail, parentName, 'Parent', dummyPassword);
                     }
                 }
 
@@ -437,6 +419,7 @@ router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Re
                     admission_number,
                     class_id: classId,
                     class_name: classDoc ? classDoc.name : className,
+                    school_id: school_id,
                     gender: ['male', 'female'].includes(gender) ? gender : 'male',
                     date_of_birth: (row.date_of_birth || '').trim() || null,
                     parent_id: parentId,
@@ -470,6 +453,7 @@ router.post('/upload-csv', authMiddleware, upload.single('file'), async (req: Re
 router.post('/upload-xlsx', authMiddleware, upload.single('file'), async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -510,12 +494,13 @@ router.post('/upload-xlsx', authMiddleware, upload.single('file'), async (req: R
                     const total = tuition + books + uniform + otherFees;
 
                     await db.collection('fee_structures').updateOne(
-                        { class_level: classLevel, term, academic_year: '2025/2026' },
+                        { class_level: classLevel, term, school_id, academic_year: '2025/2026' },
                         {
                             $set: {
                                 id: uuidv4(),
                                 class_level: classLevel,
                                 term,
+                                school_id,
                                 academic_year: '2025/2026',
                                 tuition, books, uniform, other_fees: otherFees, total,
                                 created_at: nowISO(),
@@ -552,18 +537,18 @@ router.post('/upload-xlsx', authMiddleware, upload.single('file'), async (req: R
                     continue;
                 }
 
-                const existingStudent = await db.collection('students').findOne({ admission_number });
+                const existingStudent = await db.collection('students').findOne({ admission_number, school_id });
                 if (existingStudent) {
                     errors.push(`Students Row ${rowNum}: Admission number ${admission_number} already exists`);
                     continue;
                 }
 
                 // Resolve class
-                let classDoc = await db.collection('classes').findOne({ name: className }, { projection: { _id: 0 } });
+                let classDoc = await db.collection('classes').findOne({ name: className, school_id }, { projection: { _id: 0 } });
                 if (!classDoc) {
                     const levelMatch = levels.find(l => className.toUpperCase().includes(l));
                     if (levelMatch) {
-                        classDoc = await db.collection('classes').findOne({ level: levelMatch }, { projection: { _id: 0 } });
+                        classDoc = await db.collection('classes').findOne({ level: levelMatch, school_id }, { projection: { _id: 0 } });
                     }
                 }
                 const classId = classDoc ? classDoc.id : null;
@@ -575,29 +560,13 @@ router.post('/upload-xlsx', authMiddleware, upload.single('file'), async (req: R
 
                 if (parentEmail) {
                     const existingParent = await db.collection('users').findOne(
-                        { email: parentEmail, role: 'parent' },
+                        { email: parentEmail, role: 'parent', school_id },
                         { projection: { _id: 0 } }
                     );
                     if (existingParent) {
                         parentId = existingParent.id;
                         resolvedParentName = resolvedParentName || existingParent.full_name;
                         resolvedParentPhone = resolvedParentPhone || existingParent.phone;
-                        // Re-send invitation if parent hasn't logged in yet
-                        if (existingParent.must_change_password) {
-                            const newDummyPassword = generateDummyPassword();
-                            await db.collection('users').updateOne(
-                                { id: existingParent.id },
-                                { $set: { password_hash: hashPassword(newDummyPassword) } }
-                            );
-                            console.log(`📧 [XLSX] Re-sending invite to existing parent: ${parentEmail}`);
-                            try {
-                                await sendInvitationEmail(parentEmail, resolvedParentName || 'Parent', 'Parent', newDummyPassword);
-                                console.log(`✅ [XLSX] Invite email resent to ${parentEmail}`);
-                            } catch (emailErr) {
-                                console.error(`❌ [XLSX] Email failed for ${parentEmail}:`, emailErr);
-                                errors.push(`Students Row ${rowNum}: Parent linked but re-invitation email failed`);
-                            }
-                        }
                     } else if (parentName) {
                         const dummyPassword = generateDummyPassword();
                         const newParentId = uuidv4();
@@ -607,6 +576,7 @@ router.post('/upload-xlsx', authMiddleware, upload.single('file'), async (req: R
                             password_hash: hashPassword(dummyPassword),
                             full_name: parentName,
                             role: 'parent',
+                            school_id: school_id,
                             phone: parentPhone || null,
                             must_change_password: true,
                             created_at: nowISO(),
@@ -615,14 +585,7 @@ router.post('/upload-xlsx', authMiddleware, upload.single('file'), async (req: R
                         parentId = newParentId;
                         parentsCreated++;
                         // Send invitation email
-                        console.log(`📧 [XLSX] Sending new invite to: ${parentEmail}`);
-                        try {
-                            await sendInvitationEmail(parentEmail, parentName, 'Parent', dummyPassword);
-                            console.log(`✅ [XLSX] Invite email sent to ${parentEmail}`);
-                        } catch (emailErr) {
-                            console.error(`❌ [XLSX] Email failed for ${parentEmail}:`, emailErr);
-                            errors.push(`Students Row ${rowNum}: Parent created but invitation email failed`);
-                        }
+                        await sendInvitationEmail(parentEmail, parentName, 'Parent', dummyPassword);
                     }
                 }
 
@@ -633,6 +596,7 @@ router.post('/upload-xlsx', authMiddleware, upload.single('file'), async (req: R
                     admission_number,
                     class_id: classId,
                     class_name: classDoc ? classDoc.name : className,
+                    school_id: school_id,
                     gender: ['male', 'female'].includes(gender) ? gender : 'male',
                     date_of_birth: (row.date_of_birth || '').toString().trim() || null,
                     parent_id: parentId,

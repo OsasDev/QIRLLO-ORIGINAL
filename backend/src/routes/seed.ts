@@ -6,20 +6,35 @@ import { hashPassword, calculateGrade, nowISO } from '../helpers';
 const router = Router();
 
 // POST /api/seed
-router.post('/', async (_req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
     try {
         const db = getDB();
+        const school_id = req.body.school_id || 'qirllo-demo-school';
+        const school_name = req.body.school_name || 'QIRLLO Demonstration School';
 
-        const existing = await db.collection('users').findOne({ email: 'admin@qirllo.com' });
+        const existing = await db.collection('users').findOne({ email: 'admin@qirllo.com', school_id });
         if (existing) {
-            res.json({ message: 'Database already seeded' });
+            res.json({ message: `Database already seeded for school ${school_name}` });
             return;
         }
+
+        // Create school settings
+        await db.collection('school_settings').insertOne({
+            school_id,
+            school_name,
+            address: '123 Education Way, Lagos, Nigeria',
+            phone: '+234 800 QIRLLO',
+            email: 'info@qirllo.com',
+            academic_year: '2025/2026',
+            current_term: 'first',
+            created_at: nowISO(),
+        });
 
         // Create admin
         const adminId = uuidv4();
         await db.collection('users').insertOne({
             id: adminId,
+            school_id,
             email: 'admin@qirllo.com',
             password_hash: hashPassword('admin123'),
             full_name: 'Mrs. Adebayo Folake',
@@ -40,6 +55,7 @@ router.post('/', async (_req: Request, res: Response) => {
             teacherIds.push(tid);
             await db.collection('users').insertOne({
                 id: tid,
+                school_id,
                 email: t.email,
                 password_hash: hashPassword('teacher123'),
                 full_name: t.name,
@@ -61,6 +77,7 @@ router.post('/', async (_req: Request, res: Response) => {
             parentIds.push(pid);
             await db.collection('users').insertOne({
                 id: pid,
+                school_id,
                 email: p.email,
                 password_hash: hashPassword('parent123'),
                 full_name: p.name,
@@ -78,6 +95,7 @@ router.post('/', async (_req: Request, res: Response) => {
             classIds.push(cid);
             await db.collection('classes').insertOne({
                 id: cid,
+                school_id,
                 name: `${classLevels[i]} A`,
                 level: classLevels[i],
                 section: 'A',
@@ -108,6 +126,7 @@ router.post('/', async (_req: Request, res: Response) => {
                 subjectIds.push({ id: sid, class_id: cid });
                 await db.collection('subjects').insertOne({
                     id: sid,
+                    school_id,
                     name: subjectsList[j].name,
                     code: subjectsList[j].code,
                     class_id: cid,
@@ -132,10 +151,11 @@ router.post('/', async (_req: Request, res: Response) => {
             const classIdx = i % classIds.slice(0, 3).length;
             const parentIdx = i % parentIds.length;
 
-            const classDoc = await db.collection('classes').findOne({ id: classIds[classIdx] }, { projection: { _id: 0 } });
+            const classDoc = await db.collection('classes').findOne({ id: classIds[classIdx], school_id }, { projection: { _id: 0 } });
 
             await db.collection('students').insertOne({
                 id: stid,
+                school_id,
                 full_name: studentNames[i],
                 admission_number: `QRL/2025/${String(i + 1).padStart(4, '0')}`,
                 class_id: classIds[classIdx],
@@ -148,7 +168,7 @@ router.post('/', async (_req: Request, res: Response) => {
 
         // Create sample grades
         for (const studentId of studentIds.slice(0, 6)) {
-            const student = await db.collection('students').findOne({ id: studentId }, { projection: { _id: 0 } });
+            const student = await db.collection('students').findOne({ id: studentId, school_id }, { projection: { _id: 0 } });
             if (!student) continue;
 
             const classSubjects = subjectIds.filter(s => s.class_id === student.class_id);
@@ -160,6 +180,7 @@ router.post('/', async (_req: Request, res: Response) => {
 
                 await db.collection('grades').insertOne({
                     id: uuidv4(),
+                    school_id,
                     student_id: studentId,
                     student_name: student.full_name,
                     subject_id: subj.id,
@@ -179,6 +200,7 @@ router.post('/', async (_req: Request, res: Response) => {
         // Create announcements
         await db.collection('announcements').insertOne({
             id: uuidv4(),
+            school_id,
             title: 'Welcome to 2025/2026 Academic Session',
             content: "We welcome all students, parents, and staff to the new academic year. Let's make it a successful one!",
             target_audience: 'all',
@@ -190,6 +212,7 @@ router.post('/', async (_req: Request, res: Response) => {
 
         await db.collection('announcements').insertOne({
             id: uuidv4(),
+            school_id,
             title: 'First Term Examination Schedule',
             content: 'First term examinations will begin on December 10th, 2025. All students are advised to prepare adequately.',
             target_audience: 'all',
@@ -200,7 +223,8 @@ router.post('/', async (_req: Request, res: Response) => {
         });
 
         res.json({
-            message: 'Database seeded successfully',
+            message: `Database seeded successfully for school ${school_name}`,
+            school_id,
             admin_email: 'admin@qirllo.com',
             admin_password: 'admin123',
         });

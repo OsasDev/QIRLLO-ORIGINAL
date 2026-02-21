@@ -22,19 +22,21 @@ router.post('/register', async (req: Request, res: Response) => {
         }
 
         const userId = uuidv4();
+        const schoolId = data.school_id || 'default'; // Fallback for initial registration
         const userDoc = {
             id: userId,
             email: data.email,
             password_hash: hashPassword(data.password),
             full_name: data.full_name,
             role: data.role,
+            school_id: schoolId,
             phone: data.phone || null,
             created_at: nowISO(),
         };
         await db.collection('users').insertOne(userDoc);
 
         const token = jwt.sign(
-            { sub: userId, role: data.role },
+            { sub: userId, role: data.role, school_id: schoolId },
             JWT_SECRET,
             { expiresIn: `${JWT_EXPIRATION_HOURS}h` }
         );
@@ -47,6 +49,7 @@ router.post('/register', async (req: Request, res: Response) => {
                 email: data.email,
                 full_name: data.full_name,
                 role: data.role,
+                school_id: schoolId,
                 phone: data.phone || null,
                 created_at: userDoc.created_at,
             },
@@ -73,7 +76,7 @@ router.post('/login', async (req: Request, res: Response) => {
         }
 
         const token = jwt.sign(
-            { sub: user.id, role: user.role },
+            { sub: user.id, role: user.role, school_id: user.school_id },
             JWT_SECRET,
             { expiresIn: `${JWT_EXPIRATION_HOURS}h` }
         );
@@ -87,6 +90,7 @@ router.post('/login', async (req: Request, res: Response) => {
                 email: user.email,
                 full_name: user.full_name,
                 role: user.role,
+                school_id: user.school_id,
                 phone: user.phone || null,
                 created_at: user.created_at,
             },
@@ -104,6 +108,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
         email: user.email,
         full_name: user.full_name,
         role: user.role,
+        school_id: user.school_id,
         phone: user.phone || null,
         must_change_password: user.must_change_password === true,
         created_at: user.created_at,

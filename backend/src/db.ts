@@ -6,14 +6,16 @@ let client: MongoClient;
 
 export async function connectDB(): Promise<Db> {
     if (db) return db;
-    console.log('Connecting to MongoDB...');
+
+    // Mask password in logs
+    const maskedUrl = MONGO_URL.replace(/:([^@]+)@/, ':****@');
+    console.log('Connecting to MongoDB with URL:', maskedUrl);
     console.log('NODE_TLS_REJECT_UNAUTHORIZED:', process.env.NODE_TLS_REJECT_UNAUTHORIZED);
 
     client = new MongoClient(MONGO_URL, {
-        tls: true,
-        tlsInsecure: true, // More comprehensive than just allowInvalidCertificates
-        connectTimeoutMS: 10000,
-        serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS: 30000,
+        serverSelectionTimeoutMS: 30000,
+        // Let the connection string handle TLS/SSL automatically
     });
     try {
         await client.connect();
@@ -21,7 +23,7 @@ export async function connectDB(): Promise<Db> {
         console.log(`Connected to MongoDB: ${DB_NAME}`);
         return db;
     } catch (err) {
-        console.error('MongoDB connection error:', err);
+        console.error('MongoDB connection error details:', err);
         throw err;
     }
 }

@@ -15,6 +15,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.post('/structure', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -27,6 +28,7 @@ router.post('/structure', authMiddleware, async (req: Request, res: Response) =>
         const feeId = uuidv4();
         const feeDoc = {
             id: feeId,
+            school_id, // Link to school
             class_level: data.class_level,
             term: data.term,
             academic_year: data.academic_year || '2025/2026',
@@ -39,7 +41,7 @@ router.post('/structure', authMiddleware, async (req: Request, res: Response) =>
         };
 
         await db.collection('fee_structures').updateOne(
-            { class_level: data.class_level, term: data.term, academic_year: data.academic_year || '2025/2026' },
+            { class_level: data.class_level, term: data.term, academic_year: data.academic_year || '2025/2026', school_id },
             { $set: feeDoc },
             { upsert: true }
         );
@@ -54,7 +56,8 @@ router.post('/structure', authMiddleware, async (req: Request, res: Response) =>
 router.get('/structure', authMiddleware, async (req: Request, res: Response) => {
     try {
         const db = getDB();
-        const query: any = {};
+        const school_id = (req as AuthRequest).school_id;
+        const query: any = { school_id };
         if (req.query.class_level) query.class_level = req.query.class_level;
         if (req.query.term) query.term = req.query.term;
 
@@ -72,6 +75,7 @@ router.get('/structure', authMiddleware, async (req: Request, res: Response) => 
 router.post('/payment', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -80,9 +84,9 @@ router.post('/payment', authMiddleware, async (req: Request, res: Response) => {
         const data = req.body;
         const db = getDB();
 
-        const student = await db.collection('students').findOne({ id: data.student_id }, { projection: { _id: 0 } });
+        const student = await db.collection('students').findOne({ id: data.student_id, school_id }, { projection: { _id: 0 } });
         if (!student) {
-            res.status(404).json({ detail: 'Student not found' });
+            res.status(404).json({ detail: 'Student not found or access denied' });
             return;
         }
 
@@ -92,6 +96,7 @@ router.post('/payment', authMiddleware, async (req: Request, res: Response) => {
 
         const paymentDoc = {
             id: paymentId,
+            school_id, // Link to school
             student_id: data.student_id,
             student_name: student.full_name,
             class_name: student.class_name || null,
@@ -116,15 +121,16 @@ router.post('/payment', authMiddleware, async (req: Request, res: Response) => {
 router.get('/payments', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         const db = getDB();
 
-        const query: any = {};
+        const query: any = { school_id };
         if (req.query.student_id) query.student_id = req.query.student_id;
         if (req.query.term) query.term = req.query.term;
 
         if (currentUser.role === 'parent') {
             const children = await db.collection('students')
-                .find({ parent_id: currentUser.id }, { projection: { _id: 0 } })
+                .find({ parent_id: currentUser.id, school_id }, { projection: { _id: 0 } })
                 .toArray();
             const childIds = children.map((c: any) => c.id);
             query.student_id = { $in: childIds };
@@ -145,15 +151,16 @@ router.get('/payments', authMiddleware, async (req: Request, res: Response) => {
 router.get('/balance/:studentId', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         const db = getDB();
         const term = (req.query.term as string) || 'first';
 
         const student = await db.collection('students').findOne(
-            { id: req.params.studentId },
+            { id: req.params.studentId, school_id },
             { projection: { _id: 0 } }
         );
         if (!student) {
-            res.status(404).json({ detail: 'Student not found' });
+            res.status(404).json({ detail: 'Student not found or access denied' });
             return;
         }
 
@@ -162,18 +169,18 @@ router.get('/balance/:studentId', authMiddleware, async (req: Request, res: Resp
             return;
         }
 
-        const classDoc = await db.collection('classes').findOne({ id: student.class_id }, { projection: { _id: 0 } });
+        const classDoc = await db.collection('classes').findOne({ id: student.class_id, school_id }, { projection: { _id: 0 } });
         const classLevel = classDoc ? classDoc.level : 'JSS1';
 
         const feeStructure = await db.collection('fee_structures').findOne(
-            { class_level: classLevel, term },
+            { class_level: classLevel, term, school_id },
             { projection: { _id: 0 } }
         );
 
         const totalFees = feeStructure ? feeStructure.total : 50000;
 
         const payments = await db.collection('fee_payments')
-            .find({ student_id: req.params.studentId, term }, { projection: { _id: 0 } })
+            .find({ student_id: req.params.studentId, term, school_id }, { projection: { _id: 0 } })
             .toArray();
 
         const totalPaid = payments.reduce((sum: number, p: any) => sum + p.amount, 0);
@@ -197,6 +204,7 @@ router.get('/balance/:studentId', authMiddleware, async (req: Request, res: Resp
 router.get('/balances', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -204,7 +212,7 @@ router.get('/balances', authMiddleware, async (req: Request, res: Response) => {
 
         const db = getDB();
         const term = (req.query.term as string) || 'first';
-        const query: any = {};
+        const query: any = { school_id };
         if (req.query.class_id) query.class_id = req.query.class_id;
 
         const students = await db.collection('students')
@@ -214,18 +222,18 @@ router.get('/balances', authMiddleware, async (req: Request, res: Response) => {
         const balances: any[] = [];
 
         for (const student of students) {
-            const classDoc = await db.collection('classes').findOne({ id: student.class_id }, { projection: { _id: 0 } });
+            const classDoc = await db.collection('classes').findOne({ id: student.class_id, school_id }, { projection: { _id: 0 } });
             const classLevel = classDoc ? classDoc.level : 'JSS1';
 
             const feeStructure = await db.collection('fee_structures').findOne(
-                { class_level: classLevel, term },
+                { class_level: classLevel, term, school_id },
                 { projection: { _id: 0 } }
             );
 
             const totalFees = feeStructure ? feeStructure.total : 50000;
 
             const payments = await db.collection('fee_payments')
-                .find({ student_id: student.id, term }, { projection: { _id: 0 } })
+                .find({ student_id: student.id, term, school_id }, { projection: { _id: 0 } })
                 .toArray();
 
             const totalPaid = payments.reduce((sum: number, p: any) => sum + p.amount, 0);
@@ -272,6 +280,7 @@ QRL/2025/0003,50000,pos,first,`;
 router.post('/upload-payments-csv', authMiddleware, upload.single('file'), async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -312,11 +321,11 @@ router.post('/upload-payments-csv', authMiddleware, upload.single('file'), async
                 }
 
                 const student = await db.collection('students').findOne(
-                    { admission_number: admissionNumber },
+                    { admission_number: admissionNumber, school_id },
                     { projection: { _id: 0 } }
                 );
                 if (!student) {
-                    errors.push(`Row ${rowNum}: Student ${admissionNumber} not found`);
+                    errors.push(`Row ${rowNum}: Student ${admissionNumber} not found in this school`);
                     continue;
                 }
 
@@ -332,6 +341,7 @@ router.post('/upload-payments-csv', authMiddleware, upload.single('file'), async
 
                 const paymentDoc = {
                     id: paymentId,
+                    school_id, // Link to school
                     student_id: student.id,
                     student_name: student.full_name,
                     class_name: student.class_name || null,

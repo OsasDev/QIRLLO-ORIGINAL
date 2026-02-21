@@ -15,6 +15,7 @@ const router = Router();
 router.post('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -26,12 +27,13 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 
         let teacherName: string | null = null;
         if (data.teacher_id) {
-            const teacher = await db.collection('users').findOne({ id: data.teacher_id }, { projection: { _id: 0 } });
+            const teacher = await db.collection('users').findOne({ id: data.teacher_id, school_id }, { projection: { _id: 0 } });
             teacherName = teacher ? teacher.full_name : null;
         }
 
         const classDoc = {
             id: classId,
+            school_id,
             name: data.name,
             level: data.level,
             section: data.section || 'A',
@@ -52,17 +54,21 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 router.get('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         const db = getDB();
 
-        let query: any = {};
+        let query: any = { school_id };
         if (req.query.teacher_id) query.teacher_id = req.query.teacher_id;
 
         if (currentUser.role === 'teacher') {
             const subjects = await db.collection('subjects')
-                .find({ teacher_id: currentUser.id }, { projection: { _id: 0 } })
+                .find({ teacher_id: currentUser.id, school_id }, { projection: { _id: 0 } })
                 .toArray();
             const classIds = [...new Set(subjects.map((s: any) => s.class_id))];
-            query = { $or: [{ teacher_id: currentUser.id }, { id: { $in: classIds } }] };
+            query = {
+                school_id,
+                $or: [{ teacher_id: currentUser.id }, { id: { $in: classIds } }]
+            };
         }
 
         const classes = await db.collection('classes')
@@ -70,7 +76,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
             .toArray();
 
         for (const cls of classes) {
-            const count = await db.collection('students').countDocuments({ class_id: cls.id });
+            const count = await db.collection('students').countDocuments({ class_id: cls.id, school_id });
             cls.student_count = count;
         }
 
@@ -116,16 +122,17 @@ router.get('/xlsx-template', async (_req: Request, res: Response) => {
 router.get('/:classId', authMiddleware, async (req: Request, res: Response) => {
     try {
         const db = getDB();
+        const school_id = (req as AuthRequest).school_id;
         const cls = await db.collection('classes').findOne(
-            { id: req.params.classId },
+            { id: req.params.classId, school_id },
             { projection: { _id: 0 } }
         );
         if (!cls) {
-            res.status(404).json({ detail: 'Class not found' });
+            res.status(404).json({ detail: 'Class not found or access denied' });
             return;
         }
 
-        const count = await db.collection('students').countDocuments({ class_id: req.params.classId });
+        const count = await db.collection('students').countDocuments({ class_id: req.params.classId, school_id });
         cls.student_count = count;
         res.json(cls);
     } catch (err: any) {
@@ -137,6 +144,7 @@ router.get('/:classId', authMiddleware, async (req: Request, res: Response) => {
 router.put('/:classId', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -147,22 +155,27 @@ router.put('/:classId', authMiddleware, async (req: Request, res: Response) => {
 
         let teacherName: string | null = null;
         if (data.teacher_id) {
-            const teacher = await db.collection('users').findOne({ id: data.teacher_id }, { projection: { _id: 0 } });
+            const teacher = await db.collection('users').findOne({ id: data.teacher_id, school_id }, { projection: { _id: 0 } });
             teacherName = teacher ? teacher.full_name : null;
         }
 
         const updateData = { ...data, teacher_name: teacherName };
-        await db.collection('classes').updateOne(
-            { id: req.params.classId },
+        const result = await db.collection('classes').updateOne(
+            { id: req.params.classId, school_id },
             { $set: updateData }
         );
 
+        if (result.matchedCount === 0) {
+            res.status(404).json({ detail: 'Class not found or access denied' });
+            return;
+        }
+
         const cls = await db.collection('classes').findOne(
-            { id: req.params.classId },
+            { id: req.params.classId, school_id },
             { projection: { _id: 0 } }
         );
         if (cls) {
-            const count = await db.collection('students').countDocuments({ class_id: req.params.classId });
+            const count = await db.collection('students').countDocuments({ class_id: req.params.classId, school_id });
             cls.student_count = count;
         }
         res.json(cls);
@@ -175,15 +188,16 @@ router.put('/:classId', authMiddleware, async (req: Request, res: Response) => {
 router.delete('/:classId', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
         }
 
         const db = getDB();
-        const result = await db.collection('classes').deleteOne({ id: req.params.classId });
+        const result = await db.collection('classes').deleteOne({ id: req.params.classId, school_id });
         if (result.deletedCount === 0) {
-            res.status(404).json({ detail: 'Class not found' });
+            res.status(404).json({ detail: 'Class not found or access denied' });
             return;
         }
         res.json({ message: 'Class deleted successfully' });
@@ -196,6 +210,7 @@ router.delete('/:classId', authMiddleware, async (req: Request, res: Response) =
 router.post('/:classId/assign-teacher', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -209,27 +224,27 @@ router.post('/:classId/assign-teacher', authMiddleware, async (req: Request, res
 
         const db = getDB();
         const classDoc = await db.collection('classes').findOne(
-            { id: req.params.classId },
+            { id: req.params.classId, school_id },
             { projection: { _id: 0 } }
         );
         if (!classDoc) {
-            res.status(404).json({ detail: 'Class not found' });
+            res.status(404).json({ detail: 'Class not found or access denied' });
             return;
         }
 
         let teacherId: string;
         let teacherCredentials: any = null;
 
-        // Check if teacher already exists
+        // Check if teacher already exists (in same school)
         const existingTeacher = await db.collection('users').findOne(
-            { email, role: 'teacher' },
+            { email, role: 'teacher', school_id },
             { projection: { _id: 0 } }
         );
 
         if (existingTeacher) {
             teacherId = existingTeacher.id;
         } else {
-            // Auto-create teacher account with dummy password
+            // Auto-create teacher account
             const dummyPassword = generateDummyPassword();
             teacherId = uuidv4();
             const teacherDoc = {
@@ -238,6 +253,7 @@ router.post('/:classId/assign-teacher', authMiddleware, async (req: Request, res
                 password_hash: hashPassword(dummyPassword),
                 full_name,
                 role: 'teacher',
+                school_id, // Link to school
                 phone: phone || null,
                 must_change_password: true,
                 created_at: nowISO(),
@@ -248,12 +264,12 @@ router.post('/:classId/assign-teacher', authMiddleware, async (req: Request, res
 
         // Assign teacher to class
         await db.collection('classes').updateOne(
-            { id: req.params.classId },
+            { id: req.params.classId, school_id },
             { $set: { teacher_id: teacherId, teacher_name: full_name } }
         );
 
         const updatedClass = await db.collection('classes').findOne(
-            { id: req.params.classId },
+            { id: req.params.classId, school_id },
             { projection: { _id: 0 } }
         );
 
@@ -275,12 +291,11 @@ router.post('/:classId/assign-teacher', authMiddleware, async (req: Request, res
     }
 });
 
-
-
 // POST /api/classes/upload-xlsx
 router.post('/upload-xlsx', authMiddleware, upload.single('file'), async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -308,11 +323,12 @@ router.post('/upload-xlsx', authMiddleware, upload.single('file'), async (req: R
                     const level = (row.level || '').trim();
                     if (!name || !level) continue;
 
-                    // Check if class exists
-                    const existing = await db.collection('classes').findOne({ name });
+                    // Check if class exists in this school
+                    const existing = await db.collection('classes').findOne({ name, school_id });
                     if (!existing) {
                         const classDoc = {
                             id: uuidv4(),
+                            school_id, // Link to school
                             name,
                             level,
                             section: row.section || '',
@@ -343,6 +359,7 @@ router.post('/upload-xlsx', authMiddleware, upload.single('file'), async (req: R
 
                     const feeDoc = {
                         id: uuidv4(),
+                        school_id, // Link to school
                         class_level: level,
                         amount,
                         description: row.description || 'School Fees',

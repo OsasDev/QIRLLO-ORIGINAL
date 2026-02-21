@@ -50,6 +50,7 @@ router.put('/settings', authMiddleware, async (req: Request, res: Response) => {
 
         const data = req.body;
         const db = getDB();
+        const school_id = (req as AuthRequest).school_id;
 
         const updateData: any = {
             updated_at: nowISO(),
@@ -61,17 +62,13 @@ router.put('/settings', authMiddleware, async (req: Request, res: Response) => {
         if (data.email !== undefined) updateData.email = data.email;
         if (data.motto !== undefined) updateData.motto = data.motto;
 
-        const result = await db.collection('school_settings').updateOne(
-            {},
-            {
-                $set: updateData,
-                $setOnInsert: { id: 'default' },
-            },
-            { upsert: true }
+        await db.collection('school_settings').updateOne(
+            { id: school_id },
+            { $set: updateData }
         );
 
         const settings = await db.collection('school_settings').findOne(
-            {},
+            { id: school_id },
             { projection: { _id: 0 } }
         );
 
@@ -101,23 +98,20 @@ router.post('/logo', authMiddleware, upload.single('logo'), async (req: Request,
         const dataUrl = `data:${mimeType};base64,${base64}`;
 
         const db = getDB();
+        const school_id = (req as AuthRequest).school_id;
+
         await db.collection('school_settings').updateOne(
-            {},
+            { id: school_id },
             {
                 $set: {
                     school_logo: dataUrl,
                     updated_at: nowISO(),
                 },
-                $setOnInsert: {
-                    id: 'default',
-                    school_name: 'QIRLLO School',
-                },
-            },
-            { upsert: true }
+            }
         );
 
         const settings = await db.collection('school_settings').findOne(
-            {},
+            { id: school_id },
             { projection: { _id: 0 } }
         );
 
@@ -153,24 +147,20 @@ router.post('/setup', async (req: Request, res: Response) => {
             return;
         }
 
-        await db.collection('school_settings').updateOne(
-            {},
-            {
-                $set: {
-                    school_name,
-                    motto: motto || null,
-                    address: address || null,
-                    phone: phone || null,
-                    email: email || null,
-                    school_logo: school_logo || null,
-                    updated_at: nowISO(),
-                },
-                $setOnInsert: { id: 'default' },
-            },
-            { upsert: true }
-        );
+        const school_id = uuidv4();
 
-        const settings = await db.collection('school_settings').findOne({}, { projection: { _id: 0 } });
+        await db.collection('school_settings').insertOne({
+            id: school_id,
+            school_name,
+            motto: motto || null,
+            address: address || null,
+            phone: phone || null,
+            email: email || null,
+            school_logo: school_logo || null,
+            updated_at: nowISO(),
+        });
+
+        const settings = await db.collection('school_settings').findOne({ id: school_id }, { projection: { _id: 0 } });
         res.json(settings);
     } catch (err: any) {
         res.status(500).json({ detail: err.message });

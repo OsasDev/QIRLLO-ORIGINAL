@@ -5,6 +5,7 @@ export interface UserCreate {
     password: string;
     full_name: string;
     role: 'admin' | 'teacher' | 'parent';
+    school_id?: string;
     phone?: string;
 }
 
@@ -34,6 +35,7 @@ export interface UserDoc {
     password_hash: string;
     full_name: string;
     role: string;
+    school_id: string;
     phone?: string | null;
     must_change_password?: boolean;
     created_at: string;
@@ -46,6 +48,7 @@ export interface StudentCreate {
     admission_number: string;
     class_id: string;
     gender: 'male' | 'female';
+    school_id?: string; // Added for multi-tenancy
     date_of_birth?: string | null;
     parent_id?: string | null;
     address?: string | null;
@@ -56,6 +59,7 @@ export interface StudentResponse {
     full_name: string;
     admission_number: string;
     class_id: string;
+    school_id: string;
     class_name?: string | null;
     gender: string;
     date_of_birth?: string | null;
@@ -294,6 +298,7 @@ export interface SchoolSettings {
 export interface JWTPayload {
     sub: string;
     role: string;
+    school_id: string;
     exp: number;
 }
 
@@ -302,4 +307,5 @@ import { Request } from 'express';
 
 export interface AuthRequest extends Request {
     user?: UserDoc;
+    school_id?: string;
 }

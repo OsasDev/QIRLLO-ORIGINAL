@@ -11,6 +11,7 @@ const router = Router();
 router.post('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (!['admin', 'teacher'].includes(currentUser.role)) {
             res.status(403).json({ detail: 'Access denied' });
             return;
@@ -19,20 +20,22 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
         const data = req.body;
         const db = getDB();
 
-        const student = await db.collection('students').findOne({ id: data.student_id }, { projection: { _id: 0 } });
+        const student = await db.collection('students').findOne({ id: data.student_id, school_id }, { projection: { _id: 0 } });
         if (!student) {
-            res.status(404).json({ detail: 'Student not found' });
+            res.status(404).json({ detail: 'Student not found or access denied' });
             return;
         }
 
         const existing = await db.collection('attendance').findOne({
             student_id: data.student_id,
             date: data.date,
+            school_id,
         });
 
         const attendanceId = existing ? existing.id : uuidv4();
         const attendanceDoc = {
             id: attendanceId,
+            school_id, // Link to school
             student_id: data.student_id,
             student_name: student.full_name,
             class_id: student.class_id,
@@ -45,7 +48,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
         };
 
         if (existing) {
-            await db.collection('attendance').updateOne({ id: existing.id }, { $set: attendanceDoc });
+            await db.collection('attendance').updateOne({ id: existing.id, school_id }, { $set: attendanceDoc });
         } else {
             await db.collection('attendance').insertOne(attendanceDoc);
         }
@@ -60,6 +63,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 router.post('/bulk', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (!['admin', 'teacher'].includes(currentUser.role)) {
             res.status(403).json({ detail: 'Access denied' });
             return;
@@ -67,21 +71,23 @@ router.post('/bulk', authMiddleware, async (req: Request, res: Response) => {
 
         const { class_id, date, records } = req.body;
         const db = getDB();
-        const classDoc = await db.collection('classes').findOne({ id: class_id }, { projection: { _id: 0 } });
+        const classDoc = await db.collection('classes').findOne({ id: class_id, school_id }, { projection: { _id: 0 } });
         const results: any[] = [];
 
         for (const record of records) {
-            const student = await db.collection('students').findOne({ id: record.student_id }, { projection: { _id: 0 } });
+            const student = await db.collection('students').findOne({ id: record.student_id, school_id }, { projection: { _id: 0 } });
             if (!student) continue;
 
             const existing = await db.collection('attendance').findOne({
                 student_id: record.student_id,
                 date,
+                school_id,
             });
 
             const attendanceId = existing ? existing.id : uuidv4();
             const attendanceDoc = {
                 id: attendanceId,
+                school_id,
                 student_id: record.student_id,
                 student_name: student.full_name,
                 class_id,
@@ -94,7 +100,7 @@ router.post('/bulk', authMiddleware, async (req: Request, res: Response) => {
             };
 
             if (existing) {
-                await db.collection('attendance').updateOne({ id: existing.id }, { $set: attendanceDoc });
+                await db.collection('attendance').updateOne({ id: existing.id, school_id }, { $set: attendanceDoc });
             } else {
                 await db.collection('attendance').insertOne(attendanceDoc);
             }
@@ -112,9 +118,10 @@ router.post('/bulk', authMiddleware, async (req: Request, res: Response) => {
 router.get('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         const db = getDB();
 
-        const query: any = {};
+        const query: any = { school_id };
         if (req.query.class_id) query.class_id = req.query.class_id;
         if (req.query.student_id) query.student_id = req.query.student_id;
         if (req.query.date) query.date = req.query.date;
@@ -124,7 +131,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 
         if (currentUser.role === 'parent') {
             const children = await db.collection('students')
-                .find({ parent_id: currentUser.id }, { projection: { _id: 0 } })
+                .find({ parent_id: currentUser.id, school_id }, { projection: { _id: 0 } })
                 .toArray();
             const childIds = children.map((c: any) => c.id);
             query.student_id = { $in: childIds };
@@ -132,7 +139,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 
         if (currentUser.role === 'teacher') {
             const subjects = await db.collection('subjects')
-                .find({ teacher_id: currentUser.id }, { projection: { _id: 0 } })
+                .find({ teacher_id: currentUser.id, school_id }, { projection: { _id: 0 } })
                 .toArray();
             const classIds = [...new Set(subjects.map((s: any) => s.class_id))];
             if (!req.query.class_id) {
@@ -155,14 +162,15 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 router.get('/summary/:studentId', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         const db = getDB();
 
         const student = await db.collection('students').findOne(
-            { id: req.params.studentId },
+            { id: req.params.studentId, school_id },
             { projection: { _id: 0 } }
         );
         if (!student) {
-            res.status(404).json({ detail: 'Student not found' });
+            res.status(404).json({ detail: 'Student not found or access denied' });
             return;
         }
 
@@ -172,7 +180,7 @@ router.get('/summary/:studentId', authMiddleware, async (req: Request, res: Resp
         }
 
         const attendance = await db.collection('attendance')
-            .find({ student_id: req.params.studentId }, { projection: { _id: 0 } })
+            .find({ student_id: req.params.studentId, school_id }, { projection: { _id: 0 } })
             .toArray();
 
         const totalDays = attendance.length;

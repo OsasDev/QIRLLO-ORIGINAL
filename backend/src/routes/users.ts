@@ -35,12 +35,14 @@ router.post('/invite', authMiddleware, async (req: Request, res: Response) => {
 
         const password = generateDummyPassword();
         const userId = uuidv4();
+        const schoolId = (req as AuthRequest).school_id!;
         const userDoc = {
             id: userId,
             email,
             password_hash: hashPassword(password),
             full_name,
             role,
+            school_id: schoolId,
             phone: phone || null,
             must_change_password: true,
             created_at: nowISO(),
@@ -82,8 +84,9 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
         }
 
         const db = getDB();
+        const school_id = (req as AuthRequest).school_id;
         const role = req.query.role as string | undefined;
-        const query: any = {};
+        const query: any = { school_id };
         if (role) query.role = role;
 
         const users = await db.collection('users')
@@ -97,11 +100,12 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /api/teachers
-router.get('/teachers', authMiddleware, async (_req: Request, res: Response) => {
+router.get('/teachers', authMiddleware, async (req: Request, res: Response) => {
     try {
         const db = getDB();
+        const school_id = (req as AuthRequest).school_id;
         const teachers = await db.collection('users')
-            .find({ role: 'teacher' }, { projection: { _id: 0, password_hash: 0 } })
+            .find({ role: 'teacher', school_id }, { projection: { _id: 0, password_hash: 0 } })
             .toArray();
         res.json(teachers);
     } catch (err: any) {
@@ -110,11 +114,12 @@ router.get('/teachers', authMiddleware, async (_req: Request, res: Response) => 
 });
 
 // GET /api/parents
-router.get('/parents', authMiddleware, async (_req: Request, res: Response) => {
+router.get('/parents', authMiddleware, async (req: Request, res: Response) => {
     try {
         const db = getDB();
+        const school_id = (req as AuthRequest).school_id;
         const parents = await db.collection('users')
-            .find({ role: 'parent' }, { projection: { _id: 0, password_hash: 0 } })
+            .find({ role: 'parent', school_id }, { projection: { _id: 0, password_hash: 0 } })
             .toArray();
         res.json(parents);
     } catch (err: any) {

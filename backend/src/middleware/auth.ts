@@ -32,6 +32,7 @@ export async function authMiddleware(
         }
 
         (req as AuthRequest).user = user as any;
+        (req as AuthRequest).school_id = payload.school_id;
         next();
     } catch (err: any) {
         if (err.name === 'TokenExpiredError') {

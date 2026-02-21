@@ -11,6 +11,7 @@ const router = Router();
 router.post('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id!;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -20,15 +21,16 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
         const db = getDB();
         const subjectId = uuidv4();
 
-        const classDoc = await db.collection('classes').findOne({ id: data.class_id }, { projection: { _id: 0 } });
+        const classDoc = await db.collection('classes').findOne({ id: data.class_id, school_id }, { projection: { _id: 0 } });
         let teacherName: string | null = null;
         if (data.teacher_id) {
-            const teacher = await db.collection('users').findOne({ id: data.teacher_id }, { projection: { _id: 0 } });
+            const teacher = await db.collection('users').findOne({ id: data.teacher_id, school_id }, { projection: { _id: 0 } });
             teacherName = teacher ? teacher.full_name : null;
         }
 
         const subjectDoc = {
             id: subjectId,
+            school_id, // Link to school
             name: data.name,
             code: data.code,
             class_id: data.class_id,
@@ -48,9 +50,10 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 router.get('/', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         const db = getDB();
 
-        const query: any = {};
+        const query: any = { school_id };
         if (req.query.class_id) query.class_id = req.query.class_id;
         if (req.query.teacher_id) query.teacher_id = req.query.teacher_id;
         if (currentUser.role === 'teacher') query.teacher_id = currentUser.id;
@@ -69,6 +72,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 router.put('/:subjectId', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
@@ -77,21 +81,26 @@ router.put('/:subjectId', authMiddleware, async (req: Request, res: Response) =>
         const data = req.body;
         const db = getDB();
 
-        const classDoc = await db.collection('classes').findOne({ id: data.class_id }, { projection: { _id: 0 } });
+        const classDoc = await db.collection('classes').findOne({ id: data.class_id, school_id }, { projection: { _id: 0 } });
         let teacherName: string | null = null;
         if (data.teacher_id) {
-            const teacher = await db.collection('users').findOne({ id: data.teacher_id }, { projection: { _id: 0 } });
+            const teacher = await db.collection('users').findOne({ id: data.teacher_id, school_id }, { projection: { _id: 0 } });
             teacherName = teacher ? teacher.full_name : null;
         }
 
         const updateData = { ...data, class_name: classDoc ? classDoc.name : null, teacher_name: teacherName };
-        await db.collection('subjects').updateOne(
-            { id: req.params.subjectId },
+        const result = await db.collection('subjects').updateOne(
+            { id: req.params.subjectId, school_id },
             { $set: updateData }
         );
 
+        if (result.matchedCount === 0) {
+            res.status(404).json({ detail: 'Subject not found or access denied' });
+            return;
+        }
+
         const subject = await db.collection('subjects').findOne(
-            { id: req.params.subjectId },
+            { id: req.params.subjectId, school_id },
             { projection: { _id: 0 } }
         );
         res.json(subject);
@@ -104,15 +113,16 @@ router.put('/:subjectId', authMiddleware, async (req: Request, res: Response) =>
 router.delete('/:subjectId', authMiddleware, async (req: Request, res: Response) => {
     try {
         const currentUser = (req as AuthRequest).user!;
+        const school_id = (req as AuthRequest).school_id;
         if (currentUser.role !== 'admin') {
             res.status(403).json({ detail: 'Admin access required' });
             return;
         }
 
         const db = getDB();
-        const result = await db.collection('subjects').deleteOne({ id: req.params.subjectId });
+        const result = await db.collection('subjects').deleteOne({ id: req.params.subjectId, school_id });
         if (result.deletedCount === 0) {
-            res.status(404).json({ detail: 'Subject not found' });
+            res.status(404).json({ detail: 'Subject not found or access denied' });
             return;
         }
         res.json({ message: 'Subject deleted successfully' });
