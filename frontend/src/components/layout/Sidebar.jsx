@@ -51,22 +51,34 @@ export const Sidebar = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
 
-  const navItems = user?.role === 'admin' 
-    ? adminNavItems 
-    : user?.role === 'teacher' 
-    ? teacherNavItems 
-    : parentNavItems;
+  const navItems = user?.role === 'admin'
+    ? adminNavItems
+    : user?.role === 'teacher'
+      ? teacherNavItems
+      : parentNavItems;
 
   return (
     <aside className="sidebar hidden lg:flex lg:flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-border">
         <Link to="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-white font-bold text-xl">Q</span>
-          </div>
+          {user?.school_logo ? (
+            <img
+              src={user.school_logo}
+              alt={user.school_name}
+              className="w-10 h-10 rounded-lg object-contain"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-white font-bold text-xl">
+                {user?.school_name?.charAt(0) || 'Q'}
+              </span>
+            </div>
+          )}
           <div>
-            <h1 className="font-bold text-xl text-foreground">QIRLLO</h1>
+            <h1 className="font-bold text-xl text-foreground truncate max-w-[140px]">
+              {user?.school_name || 'QIRLLO'}
+            </h1>
             <p className="text-xs text-muted-foreground">School Management</p>
           </div>
         </Link>
@@ -75,14 +87,21 @@ export const Sidebar = () => {
       {/* User Info */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
             <span className="text-primary font-semibold">
               {user?.full_name?.charAt(0) || 'U'}
             </span>
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-sm truncate">{user?.full_name}</p>
-            <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground capitalize">{user?.role}</span>
+              {user?.school_id && (
+                <span className="text-[10px] text-muted-foreground/60 font-mono mt-0.5 truncate" title={`School ID: ${user.school_id}`}>
+                  ID: {user.school_id.substring(0, 8)}...
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -90,9 +109,9 @@ export const Sidebar = () => {
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path || 
+          const isActive = location.pathname === item.path ||
             (item.path !== `/${user?.role}` && location.pathname.startsWith(item.path));
-          
+
           return (
             <Link
               key={item.path}

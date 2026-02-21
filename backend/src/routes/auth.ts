@@ -41,6 +41,8 @@ router.post('/register', async (req: Request, res: Response) => {
             { expiresIn: `${JWT_EXPIRATION_HOURS}h` }
         );
 
+        const schoolSettings = await db.collection('school_settings').findOne({ school_id: schoolId });
+
         res.json({
             access_token: token,
             token_type: 'bearer',
@@ -50,6 +52,8 @@ router.post('/register', async (req: Request, res: Response) => {
                 full_name: data.full_name,
                 role: data.role,
                 school_id: schoolId,
+                school_name: schoolSettings?.school_name || 'QIRLLO School',
+                school_logo: schoolSettings?.school_logo || null,
                 phone: data.phone || null,
                 created_at: userDoc.created_at,
             },
@@ -81,6 +85,9 @@ router.post('/login', async (req: Request, res: Response) => {
             { expiresIn: `${JWT_EXPIRATION_HOURS}h` }
         );
 
+        // Fetch school branding
+        const schoolSettings = await db.collection('school_settings').findOne({ school_id: user.school_id });
+
         res.json({
             access_token: token,
             token_type: 'bearer',
@@ -91,6 +98,8 @@ router.post('/login', async (req: Request, res: Response) => {
                 full_name: user.full_name,
                 role: user.role,
                 school_id: user.school_id,
+                school_name: schoolSettings?.school_name || 'QIRLLO School',
+                school_logo: schoolSettings?.school_logo || null,
                 phone: user.phone || null,
                 created_at: user.created_at,
             },
@@ -103,12 +112,19 @@ router.post('/login', async (req: Request, res: Response) => {
 // GET /api/auth/me
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
     const user = (req as AuthRequest).user!;
+    const db = getDB();
+
+    // Fetch school branding
+    const schoolSettings = await db.collection('school_settings').findOne({ school_id: user.school_id });
+
     res.json({
         id: user.id,
         email: user.email,
         full_name: user.full_name,
         role: user.role,
         school_id: user.school_id,
+        school_name: schoolSettings?.school_name || 'QIRLLO School',
+        school_logo: schoolSettings?.school_logo || null,
         phone: user.phone || null,
         must_change_password: user.must_change_password === true,
         created_at: user.created_at,

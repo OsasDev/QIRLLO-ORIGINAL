@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 export const AdminDashboard = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +65,9 @@ export const AdminDashboard = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl md:text-3xl font-bold mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Here's your school overview.</p>
+          <p className="text-muted-foreground">
+            Welcome back to <strong>{user?.school_name || 'your school'}</strong>! Here's your overview.
+          </p>
         </div>
 
         {/* Stats Grid */}
