@@ -22,8 +22,9 @@ const app = express();
 
 // Middleware
 app.use(express.json());
+console.log('Using CORS origins:', CORS_ORIGINS);
 app.use(cors({
-    origin: CORS_ORIGINS === '*' ? '*' : CORS_ORIGINS.split(','),
+    origin: CORS_ORIGINS === '*' ? '*' : CORS_ORIGINS.split(',').map(o => o.trim()),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

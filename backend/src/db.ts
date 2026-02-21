@@ -6,14 +6,22 @@ let client: MongoClient;
 
 export async function connectDB(): Promise<Db> {
     if (db) return db;
+    console.log('Connecting to MongoDB...');
     client = new MongoClient(MONGO_URL, {
         tls: true,
         tlsAllowInvalidCertificates: true,
+        connectTimeoutMS: 5000, // 5 second timeout
+        serverSelectionTimeoutMS: 5000,
     });
-    await client.connect();
-    db = client.db(DB_NAME);
-    console.log(`Connected to MongoDB: ${DB_NAME}`);
-    return db;
+    try {
+        await client.connect();
+        db = client.db(DB_NAME);
+        console.log(`Connected to MongoDB: ${DB_NAME}`);
+        return db;
+    } catch (err) {
+        console.error('MongoDB connection error:', err);
+        throw err;
+    }
 }
 
 export function getDB(): Db {

@@ -17,7 +17,9 @@ services:
       - key: PORT
         value: 10000
       - key: FRONTEND_URL
-        value: https://qirllo-frontend.onrender.com # Update this later if needed
+        value: https://qirllo-frontend.onrender.com
+      - key: CORS_ORIGINS
+        value: https://qirllo-frontend.onrender.com
       - key: NODE_TLS_REJECT_UNAUTHORIZED
         value: '0'
 
