@@ -7,11 +7,13 @@ let client: MongoClient;
 export async function connectDB(): Promise<Db> {
     if (db) return db;
     console.log('Connecting to MongoDB...');
+    console.log('NODE_TLS_REJECT_UNAUTHORIZED:', process.env.NODE_TLS_REJECT_UNAUTHORIZED);
+
     client = new MongoClient(MONGO_URL, {
         tls: true,
-        tlsAllowInvalidCertificates: true,
-        connectTimeoutMS: 5000, // 5 second timeout
-        serverSelectionTimeoutMS: 5000,
+        tlsInsecure: true, // More comprehensive than just allowInvalidCertificates
+        connectTimeoutMS: 10000,
+        serverSelectionTimeoutMS: 10000,
     });
     try {
         await client.connect();
